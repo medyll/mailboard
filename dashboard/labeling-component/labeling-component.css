@@ -1,0 +1,123 @@
+/* Étiquetage JEV — une carte à la fois, réponses au clavier ou au clic. */
+
+labeling-component {
+  display: block;
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+labeling-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 0 12px;
+}
+
+labeling-header h1 {
+  margin: 0;
+  font-size: 20px;
+}
+
+labeling-card,
+labeling-form,
+labeling-reveal {
+  display: block;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+
+labeling-meta {
+  display: block;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+labeling-card h2 {
+  margin: 6px 0;
+  font-size: 17px;
+  overflow-wrap: anywhere;
+}
+
+labeling-card pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 320px;
+  overflow: auto;
+  font: 13px/1.45 ui-monospace, Consolas, monospace;
+}
+
+labeling-question {
+  display: block;
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+}
+
+labeling-question:first-child {
+  border-top: 0;
+}
+
+labeling-question p {
+  margin: 0 0 6px;
+}
+
+group-control {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+labeling-question button,
+labeling-footer button {
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 5px 10px;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+labeling-question button[aria-pressed='true'] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+labeling-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+labeling-footer .labeling-primary-button {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.labeling-notice {
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--france-travail);
+}
+
+.labeling-back-link {
+  color: var(--accent);
+}
+
+labeling-reveal {
+  font-size: 14px;
+}
+
+labeling-reveal ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}

@@ -6,6 +6,12 @@
       "runtimeExecutable": "npx",
       "runtimeArgs": ["--yes", "serve", "dashboard", "-l", "4178"],
       "port": 4178
+    },
+    {
+      "name": "mailboard-local",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["settings/server.mjs", "--port", "4177"],
+      "port": 4177
     }
   ]
 }

@@ -121,6 +121,30 @@ Lancer la commande vaut opt-in, même si `config/jev.json` porte
 changé. `--limit` est plafonné à 200. Une erreur ne remplace jamais une décision
 `ok` déjà acquise, et le dashboard est régénéré à la fin.
 
+Pour comparer JEV à votre propre jugement (étape nécessaire avant de fixer les
+seuils de `config/jev.json`) :
+
+```bash
+node settings/server.mjs
+```
+
+puis ouvrir http://127.0.0.1:4177/labeling-component/labeling-component.html
+(lien « Étiqueter JEV » du dashboard). Chaque mail est présenté sans la réponse
+de JEV ; les valeurs préremplies sont neutres (« non », `information`, 0), donc
+une alerte banale se valide d'un appui sur Entrée. `S` passe, `?` note « je ne
+sais pas ». La réponse de JEV n'apparaît qu'après enregistrement. Les cas que JEV
+juge rares passent en premier. Les étiquettes vont dans `data/jev-labels.json`.
+
+Après ~60 étiquettes :
+
+```bash
+node ingest/jev-agreement.mjs
+```
+
+Le rapport donne l'accord par question, les confusions, les erreurs sûres
+d'elles, et pour chaque question oui/non le plus haut seuil qui ne rate aucun
+« oui » humain. Il n'écrit rien : recopier un seuil reste votre décision.
+
 ```bash
 node --test
 ```

@@ -81,7 +81,14 @@ h2 {
 
 .topbar-actions {
   display: flex;
+  align-items: center;
   gap: 8px;
+}
+
+.topbar-link {
+  color: var(--accent);
+  font-size: 14px;
+  white-space: nowrap;
 }
 
 input[type='search'] {

@@ -5,6 +5,7 @@ import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { prepareSettings, readSettings, serializeSettings, validateSettings } from './config.mjs';
+import { labelQuestions, readLabels, saveLabel } from '../ingest/jev-labels.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const MIME = {
@@ -91,7 +92,7 @@ export async function createSettingsServer({ root = ROOT, host = '127.0.0.1', po
   const server = http.createServer(async (request, response) => {
     try {
       const url = new URL(request.url, `http://${request.headers.host ?? host}`);
-      const isApi = url.pathname.startsWith('/api/settings');
+      const isApi = url.pathname.startsWith('/api/settings') || url.pathname.startsWith('/api/labels');
 
       if (isApi) {
         const origin = request.headers.origin;
@@ -115,6 +116,14 @@ export async function createSettingsServer({ root = ROOT, host = '127.0.0.1', po
           } finally {
             saving = false;
           }
+        }
+        // Étiquetage JEV : questions posées + étiquettes déjà saisies, écriture une à une.
+        if (request.method === 'GET' && url.pathname === '/api/labels') {
+          return json(response, 200, { ...labelQuestions(), labels: readLabels(root).labels });
+        }
+        if (request.method === 'PUT' && url.pathname === '/api/labels') {
+          const result = saveLabel(root, await readBody(request));
+          return json(response, result.status, result);
         }
         return json(response, 404, { error: 'Route inconnue.' });
       }

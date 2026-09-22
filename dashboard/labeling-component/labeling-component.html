@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mailboard — étiquetage JEV</title>
+    <link rel="stylesheet" href="../style.css" />
+    <link rel="stylesheet" href="labeling-component.css" />
+  </head>
+  <body>
+    <labeling-component>
+      <labeling-header>
+        <div>
+          <h1>Étiquetage JEV</h1>
+          <p class="sub" id="progress">chargement…</p>
+        </div>
+        <a class="labeling-back-link" href="../index.html">← Dashboard</a>
+      </labeling-header>
+
+      <p class="labeling-notice" id="notice" hidden></p>
+
+      <labeling-card id="card" hidden>
+        <labeling-meta id="meta"></labeling-meta>
+        <h2 id="subject"></h2>
+        <p id="summary"></p>
+        <details id="body-box">
+          <summary>Corps du mail</summary>
+          <pre id="body"></pre>
+        </details>
+      </labeling-card>
+
+      <labeling-form id="form" hidden></labeling-form>
+
+      <labeling-footer id="footer" hidden>
+        <span class="hint">Entrée : enregistrer · S : passer · ? : je ne sais pas (clic)</span>
+        <group-control>
+          <button id="skip" type="button">Passer</button>
+          <button id="save" type="button" class="labeling-primary-button">Enregistrer</button>
+        </group-control>
+      </labeling-footer>
+
+      <labeling-reveal id="reveal" hidden></labeling-reveal>
+    </labeling-component>
+
+    <script src="../data.js"></script>
+    <script src="../bodies.js"></script>
+    <script src="../settings-runtime.js"></script>
+    <script src="labeling-component.js"></script>
+  </body>
+</html>
