@@ -118,6 +118,12 @@ test('pas de notification sans nouveau message, run connector manquant signalé'
   dropRun(inbox, 'proton-up', ['p1']);
   await runCycle({ root, channels, skipCollect: true, log: quiet });
 
+  // Un rattrapage Gmail seul ne vaut pas collecte Gmail.
+  fs.writeFileSync(
+    path.join(inbox, 'backfill-gmail.json'),
+    JSON.stringify({ schemaVersion: 2, kind: 'backfill', source: { sourceId: 'gmail-primary' }, messages: [] }),
+  );
+
   // Même message revu : doublon, rien à notifier. Gmail n'a rien déposé.
   const result = await runCycle({
     root,

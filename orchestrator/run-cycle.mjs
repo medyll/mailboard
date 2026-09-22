@@ -90,7 +90,11 @@ function inboxRuns(inbox) {
   for (const file of fs.readdirSync(inbox).filter((f) => f.endsWith('.json'))) {
     try {
       const content = JSON.parse(fs.readFileSync(path.join(inbox, file), 'utf8'));
-      runs.set(file, { sourceId: content.source?.sourceId ?? 'gmail-legacy', status: content.collector?.status ?? 'ok' });
+      runs.set(file, {
+        sourceId: content.source?.sourceId ?? 'gmail-legacy',
+        status: content.collector?.status ?? 'ok',
+        backfill: content.kind === 'backfill',
+      });
     } catch {
       runs.set(file, { sourceId: null, status: 'error' });
     }
@@ -206,7 +210,8 @@ export async function runCycle({
 
   // Constater : les canaux connector sont collectés par l'agent avant l'appel.
   if (!retryFailed && !skipCollect) {
-    const waiting = [...inboxRuns(inbox).values()];
+    // Un run de rattrapage n'observe pas la boîte : il ne prouve pas la collecte.
+    const waiting = [...inboxRuns(inbox).values()].filter((r) => !r.backfill);
     for (const channel of channels.filter((c) => c.accessMode === 'connector')) {
       const present = waiting.some((r) => r.sourceId === channel.sourceId);
       state.channels[channel.sourceId] = { status: present ? 'delegated' : 'missing' };

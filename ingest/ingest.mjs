@@ -140,6 +140,13 @@ function normalizeBody(raw) {
   return { text: truncated ? text.slice(0, BODY_MAX) : text, truncated };
 }
 
+// Part des messages dont le corps est stocké : la recherche plein texte n'a de
+// valeur que si ce chiffre monte.
+const bodyCoverage = (messages) => ({
+  withBody: messages.filter((m) => m.hasBody).length,
+  total: messages.length,
+});
+
 async function ingest() {
   const files = fs
     .readdirSync(INBOX)
@@ -148,7 +155,7 @@ async function ingest() {
 
   if (!files.length) {
     console.log('runs-inbox vide, rien à ingérer.');
-    return { added: 0, dupes: 0, bodiesAdded: 0, runs: 0, sources: [], jev: null };
+    return { added: 0, dupes: 0, bodiesAdded: 0, runs: 0, sources: [], jev: null, bodyCoverage: bodyCoverage(readJsonl(MESSAGES)) };
   }
 
   // Un id externe n'est unique que dans son canal : la clé de déduplication est
@@ -164,6 +171,7 @@ async function ingest() {
   let added = 0;
   let dupes = 0;
   let bodiesAdded = 0;
+  let touched = false;
   const newMessages = [];
   const newBodies = [];
   const newRuns = [];
@@ -198,14 +206,23 @@ async function ingest() {
     const source = run.source ?? { sourceId: 'gmail-legacy', provider: 'gmail', accessMode: 'connector' };
     const sourceId = source.sourceId ?? 'gmail-legacy';
 
+    // Un run de rattrapage n'apporte que des corps pour des messages déjà
+    // connus : ce n'est pas une observation de la boîte, il ne compte ni comme
+    // réapparition ni comme run de couverture.
+    const backfill = run.kind === 'backfill';
+    let runBodies = 0;
+
     for (const raw of run.messages ?? []) {
       if (!raw?.id) {
         console.warn(`  ! ${file} : message sans id, ignoré`);
         continue;
       }
       const key = messageKey(sourceId, raw.id);
-      const category = criteria.resolveCategory(raw.category);
-      counts[category]++;
+      const existing = byKey.get(key);
+      if (backfill && !existing) {
+        console.warn(`  ! ${file} : ${key} inconnu, corps de rattrapage ignoré`);
+        continue;
+      }
 
       // Un run ultérieur peut apporter le corps qu'un run précédent n'avait pas récupéré.
       const body = normalizeBody(raw.body);
@@ -214,10 +231,21 @@ async function ingest() {
         bodyByKey.set(key, row);
         newBodies.push(row);
         bodiesAdded++;
+        runBodies++;
       }
       const hasBody = Boolean(bodyByKey.get(key)?.text);
 
-      const existing = byKey.get(key);
+      if (backfill) {
+        if (hasBody && !existing.hasBody) {
+          existing.hasBody = true;
+          touched = true;
+        }
+        continue;
+      }
+
+      const category = criteria.resolveCategory(raw.category);
+      counts[category]++;
+
       if (existing) {
         existing.lastSeenAt = runAt;
         existing.seenCount = (existing.seenCount ?? 1) + 1;
@@ -254,6 +282,12 @@ async function ingest() {
       runAdded++;
     }
 
+    if (backfill) {
+      console.log(`  ~ ${file} : rattrapage, ${runBodies} corps ajouté(s) / ${(run.messages ?? []).length} fourni(s)`);
+      toArchive.push([full, file]);
+      continue;
+    }
+
     newRuns.push({
       runId,
       runAt,
@@ -281,7 +315,7 @@ async function ingest() {
   });
 
   // lastSeenAt/seenCount ont pu changer sur des lignes existantes → réécriture complète
-  if (dupes > 0) rewriteJsonl(MESSAGES, [...byKey.values()]);
+  if (dupes > 0 || touched) rewriteJsonl(MESSAGES, [...byKey.values()]);
   else appendJsonl(MESSAGES, newMessages);
   appendJsonl(BODIES, newBodies);
   appendJsonl(RUNS, newRuns);
@@ -301,6 +335,7 @@ async function ingest() {
       status: run.collector?.status ?? 'ok',
     })),
     jev: jevStats,
+    bodyCoverage: bodyCoverage([...byKey.values()]),
   };
 }
 
@@ -398,6 +433,7 @@ if (stats) {
         added: stats.added,
         dupes: stats.dupes,
         bodiesAdded: stats.bodiesAdded,
+        bodyCoverage: stats.bodyCoverage,
         sources: stats.sources,
       }),
     );

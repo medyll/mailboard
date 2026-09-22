@@ -82,6 +82,30 @@ fenêtre écrivent donc deux fichiers, chacun avec sa propre couverture.
 - Optionnels : `threadId`, `link`, `summary`, `body`, `queries`, `coverage`,
   `collector`, `jev`.
 
+## Run de rattrapage des corps
+
+Un run v2 avec `"kind": "backfill"` n'apporte que des corps pour des messages
+**déjà connus** du même canal. Il ne crée aucun message, ne touche ni
+`seenCount` ni `lastSeenAt`, n'entre pas dans `runs.jsonl` (ce n'est pas une
+observation de la boîte) et il est archivé comme les autres. Un `id` inconnu est
+ignoré avec un avertissement.
+
+```json
+{
+  "schemaVersion": 2,
+  "kind": "backfill",
+  "runAt": "2026-09-22T19:00:00.000Z",
+  "source": { "sourceId": "gmail-primary", "channelKind": "mailbox", "accessMode": "connector", "provider": "gmail" },
+  "collector": { "name": "scheduled-task", "status": "ok" },
+  "messages": [{ "id": "provider-message-id", "body": "Bonjour,\n\n…" }]
+}
+```
+
+Nom conseillé : `backfill-<YYYYMMDD-HHmm>--<sourceId>.json`. Les messages à
+rattraper se listent avec
+`node ingest/missing-bodies.mjs --source <sourceId> --limit 20` (du plus récent
+au plus ancien).
+
 ## Version 1 — toujours acceptée
 
 Un run sans `schemaVersion` ni `source` reste valide : c'est le format Gmail

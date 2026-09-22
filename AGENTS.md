@@ -15,6 +15,10 @@ Pas de serveur, pas de dépendances : du JSONL sur disque + un dashboard statiqu
    [ingest/schema.md](ingest/schema.md). Écrire le fichier même si aucun mail n'est
    trouvé (`"messages": []`) — un run vide documente la couverture. La `category`
    de chaque message doit être l'`id` d'un critère de `config/criteria.json`.
+3 bis. Rattraper jusqu'à 20 corps manquants par passage : lister avec
+   `node ingest/missing-bodies.mjs --source gmail-primary --limit 20`, récupérer
+   chaque corps, déposer un run `kind: "backfill"` (voir
+   [ingest/schema.md](ingest/schema.md)).
 4. Lancer ensuite `node orchestrator/run-cycle.mjs`. Il collecte les canaux
    browser, ingère une seule fois et écrit en dernière ligne un objet
    `mailboard.cycle.result`.

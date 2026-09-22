@@ -43,6 +43,25 @@ Avec le connecteur Gmail, lancer chaque requête (recherche de threads). Pour ch
 - Si le connecteur Gmail échoue : `"messages": []`, `collector.status` à `"unavailable"` et l'erreur dans `collector.note`.
 - N'écrire nulle part ailleurs que dans `data/runs-inbox/`. Ne modifier ni le code, ni `config/`, ni les fichiers `data/*.jsonl`.
 
+## 3 bis. Rattrapage des corps
+
+Lancer `node ingest/missing-bodies.mjs --source gmail-primary --limit 20`. La sortie est une ligne JSON dont `items` liste des messages Gmail déjà connus mais sans corps.
+
+Si `items` n'est pas vide : pour chacun, récupérer le message par son `id` avec le connecteur Gmail (format texte brut), puis écrire **un seul** fichier `data/runs-inbox/backfill-<YYYYMMDD-HHmm>--gmail-primary.json` :
+
+```json
+{
+  "schemaVersion": 2,
+  "kind": "backfill",
+  "runAt": "<ISO 8601>",
+  "source": { "sourceId": "gmail-primary", "channelKind": "mailbox", "accessMode": "connector", "provider": "gmail" },
+  "collector": { "name": "scheduled-task", "status": "ok" },
+  "messages": [{ "id": "<id>", "body": "<corps en texte brut>" }]
+}
+```
+
+Un message introuvable ou sans corps est simplement omis. Ne rien écrire si `items` est vide. Ce rattrapage ne compte pas dans la réponse finale.
+
 ## 4. Cycle
 
 Lancer `node orchestrator/run-cycle.mjs`. Il collecte les autres canaux (Proton via Edge), ingère une seule fois et décide de la notification. Il peut prendre plusieurs minutes ; ne pas l'interrompre.

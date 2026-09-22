@@ -87,6 +87,7 @@ test('ingère des runs v1 et v2 sans confondre les identifiants de deux sources'
     added: 3,
     dupes: 1,
     bodiesAdded: 3,
+    bodyCoverage: { withBody: 3, total: 3 },
     sources: [
       { sourceId: 'gmail-legacy', status: 'ok' },
       { sourceId: 'gmail-primary', status: 'ok' },
@@ -191,4 +192,75 @@ test('reprend un historique existant : corps tardif, run rejoué, run illisible,
 
   const bodyProjection = readProjection(path.join(root, 'dashboard', 'bodies.js'), 'MAILBOARD_BODIES');
   assert.equal(bodyProjection['proton-main:m-1'].text, 'Corps arrivé plus tard');
+});
+
+test('rattrapage : corps ajoutés sans réapparition ni run de couverture', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mailboard-ingest-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+
+  const inbox = path.join(root, 'data', 'runs-inbox');
+  fs.mkdirSync(inbox, { recursive: true });
+  fs.mkdirSync(path.join(root, 'dashboard'), { recursive: true });
+
+  const env = { ...process.env, MAILBOARD_ROOT: root };
+  const ingest = () =>
+    JSON.parse(execFileSync(process.execPath, [INGEST, '--json'], { cwd: PROJECT_ROOT, encoding: 'utf8', env }).trim().split('\n').at(-1));
+  const missing = () =>
+    JSON.parse(
+      execFileSync(process.execPath, [path.join(PROJECT_ROOT, 'ingest', 'missing-bodies.mjs'), '--source', 'gmail-primary', '--limit', '1'], {
+        cwd: PROJECT_ROOT,
+        encoding: 'utf8',
+        env,
+      }),
+    );
+
+  const category = loadCriteria().ids[0];
+  const source = { sourceId: 'gmail-primary', provider: 'gmail', accessMode: 'connector' };
+  fs.writeFileSync(
+    path.join(inbox, 'run-1.json'),
+    JSON.stringify({
+      schemaVersion: 2,
+      runAt: '2026-09-22T08:00:00.000Z',
+      source,
+      messages: [
+        { id: 'old', date: '2026-09-21T08:00:00.000Z', subject: 'Ancien', category },
+        { id: 'new', date: '2026-09-22T07:00:00.000Z', subject: 'Récent', category },
+      ],
+    }),
+  );
+  assert.deepEqual(ingest().bodyCoverage, { withBody: 0, total: 2 });
+
+  // Le plus récent d'abord, borné par --limit.
+  const before = missing();
+  assert.equal(before.missing, 2);
+  assert.deepEqual(before.items.map((i) => i.id), ['new']);
+
+  fs.writeFileSync(
+    path.join(inbox, 'backfill-1.json'),
+    JSON.stringify({
+      schemaVersion: 2,
+      kind: 'backfill',
+      runAt: '2026-09-22T12:00:00.000Z',
+      source,
+      messages: [
+        { id: 'new', body: 'Corps rattrapé' },
+        { id: 'inconnu', body: 'Jamais vu, ignoré' },
+      ],
+    }),
+  );
+  const result = ingest();
+  assert.equal(result.bodiesAdded, 1);
+  assert.equal(result.dupes, 0);
+  assert.equal(result.runs, 0);
+  assert.deepEqual(result.bodyCoverage, { withBody: 1, total: 2 });
+
+  const messages = readJsonl(path.join(root, 'data', 'messages.jsonl'));
+  const recent = messages.find((m) => m.id === 'new');
+  assert.equal(recent.hasBody, true);
+  assert.equal(recent.seenCount, 1);
+  assert.equal(recent.lastSeenAt, '2026-09-22T08:00:00.000Z');
+  assert.equal(messages.length, 2);
+  assert.equal(readJsonl(path.join(root, 'data', 'runs.jsonl')).length, 1);
+  assert.deepEqual(fs.readdirSync(inbox), []);
+  assert.deepEqual(missing().items.map((i) => i.id), ['old']);
 });
