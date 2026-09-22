@@ -3,7 +3,7 @@
   "schemaVersion": 1,
   "questionSet": "mailboard-v1",
 
-  "enabled": false,
+  "enabled": true,
   "$enabled": "false = aucun appel réseau. Le flag CLI --jev et MAILBOARD_JEV=1 l'emportent sur cette valeur. --dry n'appelle jamais, quoi qu'il arrive.",
 
   "endpoint": "https://api.typesafe.ai/v1/systemone",

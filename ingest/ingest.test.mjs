@@ -76,7 +76,7 @@ test('ingère des runs v1 et v2 sans confondre les identifiants de deux sources'
   const output = execFileSync(process.execPath, [INGEST, '--json'], {
     cwd: PROJECT_ROOT,
     encoding: 'utf8',
-    env: { ...process.env, MAILBOARD_ROOT: root },
+    env: { ...process.env, MAILBOARD_ROOT: root, MAILBOARD_JEV: '0' },
   });
 
   assert.match(output, /2 run\(s\) ingéré\(s\).*3 nouveau\(x\).*1 doublon\(s\)/s);
@@ -140,7 +140,7 @@ test('reprend un historique existant : corps tardif, run rejoué, run illisible,
     execFileSync(process.execPath, [INGEST, '--json', ...args], {
       cwd: PROJECT_ROOT,
       encoding: 'utf8',
-      env: { ...process.env, MAILBOARD_ROOT: root },
+      env: { ...process.env, MAILBOARD_ROOT: root, MAILBOARD_JEV: '0' },
     });
   const lastResult = (output) => JSON.parse(output.trim().split('\n').at(-1));
 
@@ -202,7 +202,7 @@ test('rattrapage : corps ajoutés sans réapparition ni run de couverture', (t) 
   fs.mkdirSync(inbox, { recursive: true });
   fs.mkdirSync(path.join(root, 'dashboard'), { recursive: true });
 
-  const env = { ...process.env, MAILBOARD_ROOT: root };
+  const env = { ...process.env, MAILBOARD_ROOT: root, MAILBOARD_JEV: '0' };
   const ingest = () =>
     JSON.parse(execFileSync(process.execPath, [INGEST, '--json'], { cwd: PROJECT_ROOT, encoding: 'utf8', env }).trim().split('\n').at(-1));
   const missing = () =>
