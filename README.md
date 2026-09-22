@@ -4,7 +4,9 @@ Dashboard de suivi de la veille emploi. Local, sans build, sans base de données
 
 ```
 jobmailboard/
-├── CLAUDE.md                 consignes pour la tâche planifiée
+├── AGENTS.md                 contrat de la tâche planifiée
+├── install/                  installation et prompt de la tâche planifiée
+├── orchestrator/             cycle complet : collecte, ingestion, notification
 ├── config/                   critères de tri, préférences, canaux, JEV — voir config/README.md
 ├── collectors/browser-mail/  collecte par navigateur (Proton, Edge) — voir son README
 ├── profile/                  CV et digest anonymisé (ignoré par Git)
@@ -41,16 +43,27 @@ instantané à ouvrir.
 Les corps arrivent par balise `<script>` injectée, pas par `fetch` — c'est ce qui permet
 d'ouvrir `index.html` en `file://` sans serveur, `fetch` étant bloqué sur ce protocole.
 
+## Installation
+
+Voir [install/README.md](install/README.md) : canaux, profil Edge, tâche
+planifiée.
+
 ## Utilisation
 
-Après un run de veille :
+La tâche planifiée dépose le run Gmail puis lance le cycle :
+
+```bash
+node orchestrator/run-cycle.mjs
+```
+
+La dernière ligne contient `mailboard.cycle.result` ; son champ `notify` décide
+de la notification. Voir [orchestrator/README.md](orchestrator/README.md).
+
+Pour ingérer à la main ce qui attend dans `data/runs-inbox/` :
 
 ```bash
 node ingest/ingest.mjs --json
 ```
-
-La dernière ligne contient `mailboard.ingest.result`. Le planificateur utilise
-son champ `added` pour décider s'il faut notifier.
 
 Puis ouvrir `dashboard/index.html`. Pour ne régénérer que le dashboard :
 
