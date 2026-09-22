@@ -22,7 +22,7 @@ peut être repris sans inspection manuelle après une panne.
 | collecte Gmail | 7/10 | données réelles présentes, mais collecte pilotée par la tâche externe |
 | collecte Proton/Edge | 7/10 | un run réel complet existe ; l'attachement Edge dépend encore d'une préparation locale |
 | JEV métier | 5/10 | adaptateur bien testé, aucune décision réelle persistée dans les données actuelles |
-| exploitation continue | 4/10 | pas d'orchestrateur unique, CI tests seulement, endpoint Edge indisponible lors du contrôle |
+| exploitation continue | 4/10 | orchestrateur testé mais pas encore branché, CI tests seulement, endpoint Edge indisponible lors du contrôle |
 
 Le bon nom de phase est donc : **socle validé, automatisation encore incomplète**.
 
@@ -282,16 +282,18 @@ Le contrôle `collect.mjs --check` a correctement retourné `needs_user`, mais l
 port CDP n'était pas actif. Une tâche planifiée peut donc manquer Proton tant que
 le démarrage Edge et l'autorisation de débogage ne sont pas stabilisés.
 
-### Pas d'orchestrateur explicite
+### Orchestrateur écrit, pas encore éprouvé en réel
 
-La collecte Gmail, la collecte Proton et l'ingestion existent, mais aucun
-composant ne décrit un cycle complet avec états, ordre et reprise. Le
-planificateur externe doit porter cette responsabilité. Les collecteurs ne
-doivent pas appeler l'ingesteur eux-mêmes.
+[orchestrator/run-cycle.mjs](orchestrator/run-cycle.mjs) tient le cycle :
+canaux browser en série, run d'échec quand un canal n'a rien laissé, ingestion
+unique, décision de notification, état dans `data/cycle-state.json` et reprise
+par `--retry-failed`. La collecte Gmail reste portée par l'agent (connecteur)
+avant l'appel. Il est testé avec un collecteur simulé ; aucun cycle réel avec
+Edge n'a encore tourné dans la tâche planifiée.
 
 ### Le dashboard n'a pas de test DOM
 
-Les 44 tests couvrent Proton, l'adaptateur JEV, l'éditeur de settings et
+Les 49 tests couvrent aussi l'orchestrateur. Les 44 tests d'avant couvrent Proton, l'adaptateur JEV, l'éditeur de settings et
 l'ingestion de bout en bout (runs v1/v2, identifiants partagés entre canaux,
 corps tardif, run rejoué, run illisible, `--dry`). Ils tournent en CI sur Linux
 et Windows (`.github/workflows/test.yml`). Le dashboard, lui, n'est vérifié
@@ -316,11 +318,11 @@ Activer JEV sur un petit lot réel sans changer l'ordre d'affichage ni les
 notifications. Conserver probabilités, latence, tokens, modèle et statut, puis
 comparer les décisions à un jugement humain.
 
-### 3. Formaliser l'orchestration
+### 3. Brancher l'orchestrateur sur la tâche planifiée
 
-Le planificateur doit lancer chaque canal séparément, attendre les runs, lancer
-l'ingestion une fois et notifier seulement à partir du résultat canonique. Un
-canal en échec ne doit pas annuler les autres.
+Remplacer l'appel direct à l'ingesteur par `node orchestrator/run-cycle.mjs`
+et notifier depuis `mailboard.cycle.result`. Vérifier un cycle réel, puis un
+cycle avec Edge volontairement fermé.
 
 ### 4. Tester le dashboard
 

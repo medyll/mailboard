@@ -15,17 +15,18 @@ Pas de serveur, pas de dépendances : du JSONL sur disque + un dashboard statiqu
    [ingest/schema.md](ingest/schema.md). Écrire le fichier même si aucun mail n'est
    trouvé (`"messages": []`) — un run vide documente la couverture. La `category`
    de chaque message doit être l'`id` d'un critère de `config/criteria.json`.
-4. Après avoir tenté tous les canaux, exécuter une seule fois
-   `node ingest/ingest.mjs --json`.
-5. Lire le dernier objet JSON écrit par la commande. Notifier **seulement** si
-   `type` vaut `mailboard.ingest.result` et `added > 0`. Les doublons ne
-   déclenchent rien : la déduplication par id Gmail est la source de vérité, pas
-   la fenêtre temporelle.
+4. Lancer ensuite `node orchestrator/run-cycle.mjs`. Il collecte les canaux
+   browser, ingère une seule fois et écrit en dernière ligne un objet
+   `mailboard.cycle.result`.
+5. Lire cet objet. Notifier **seulement** si `notify` vaut `true`, avec le texte
+   de `message`. Les doublons ne déclenchent rien : la déduplication par id est
+   la source de vérité, pas la fenêtre temporelle.
 
 ## Cycle d'orchestration
 
-Le planificateur porte le cycle complet ; aucun collecteur n'appelle
-l'ingesteur.
+[orchestrator/run-cycle.mjs](orchestrator/run-cycle.mjs) porte ce cycle ; aucun
+collecteur n'appelle l'ingesteur. Détails dans
+[orchestrator/README.md](orchestrator/README.md).
 
 1. **Préparer** : charger les canaux activés et fixer une fenêtre commune.
 2. **Collecter** : lancer chaque canal séparément. Les canaux qui partagent un
@@ -33,12 +34,18 @@ l'ingesteur.
    `pwsh -File collectors/browser-mail/run.ps1 --source <sourceId>` ; les autres
    peuvent tourner en parallèle.
 3. **Constater** : attendre la fin de chaque tentative. Un canal en échec écrit
-   quand même son run v2 avec `messages: []` et un `collector.status` explicite,
-   puis le cycle continue avec les autres canaux.
+   quand même son run v2 avec `messages: []` et un `collector.status` explicite ;
+   s'il n'a rien pu écrire (Edge absent, port CDP muet, délai dépassé),
+   l'orchestrateur écrit ce run à sa place. Le cycle continue avec les autres
+   canaux.
 4. **Ingérer** : lancer une seule commande `node ingest/ingest.mjs --json` après
    toutes les tentatives.
 5. **Notifier** : prendre la décision depuis l'objet
    `mailboard.ingest.result`, jamais depuis le nombre de résultats collectés.
+   L'orchestrateur la reporte dans `mailboard.cycle.result.notify`.
+
+`node orchestrator/run-cycle.mjs --retry-failed` relance seulement les canaux
+browser en échec au cycle précédent (`data/cycle-state.json`).
 
 Si le cycle s'arrête avant l'ingestion, les runs restent dans
 `data/runs-inbox/` et le prochain cycle les reprend. Si l'ingestion s'arrête

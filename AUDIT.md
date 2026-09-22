@@ -31,7 +31,7 @@ config/ (critères, canaux, préférences — tout déclaratif)
 
 ## Dette et risques
 
-- **Pas d'orchestrateur** : le cycle complet (Gmail + Proton + ingestion + notification) repose sur une tâche planifiée externe et `AGENTS.md` comme contrat. Rien dans le dépôt ne lance le cycle.
+- ~~**Pas d'orchestrateur**~~ — corrigé : `orchestrator/run-cycle.mjs` (états, reprise `--retry-failed`, run d'échec si un canal ne laisse rien, décision `notify`). Reste à le brancher sur la tâche planifiée et à l'éprouver avec Edge réel. Gmail reste collecté par l'agent (connecteur).
 - **Corps quasi absents** (2/306) : le canal Proton en `list-only` ne les fournit pas ; seul Gmail peut combler. La recherche plein texte et l'expansion des mails, arguments centraux du dashboard, restent peu exploités.
 - **JEV dormant** : shadow mode implémenté et testé, mais 302 `skipped`, aucune décision réelle persistée. Critère d'arrêt explicite dans `JEV_INTEGRATION.md` : ne pas aller plus loin sans boucle de mesure.
 - **Fragilité Edge/CDP** : profil dédié, flags (`--enable-automation`), port ouvert — maillon le plus cassant, sans preuve répétable à froid dans les conditions de la tâche planifiée.
