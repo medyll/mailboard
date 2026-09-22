@@ -115,3 +115,80 @@ test('ingère des runs v1 et v2 sans confondre les identifiants de deux sources'
   assert.equal(Object.keys(bodyProjection).length, 3);
   assert.equal(bodyProjection['gmail-primary:shared-id'].text, 'Corps & principal');
 });
+
+test('reprend un historique existant : corps tardif, run rejoué, run illisible, --dry', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mailboard-ingest-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+
+  const inbox = path.join(root, 'data', 'runs-inbox');
+  const archive = path.join(root, 'data', 'runs-archive');
+  fs.mkdirSync(inbox, { recursive: true });
+  fs.mkdirSync(path.join(root, 'dashboard'), { recursive: true });
+
+  const category = loadCriteria().ids[0];
+  const source = { sourceId: 'proton-main', provider: 'proton', accessMode: 'browser' };
+  const message = {
+    id: 'm-1',
+    date: '2026-09-22T09:00:00.000Z',
+    from: 'rh@example.test',
+    subject: 'Offre sans corps',
+    category,
+  };
+  const writeRun = (name, run) => fs.writeFileSync(path.join(inbox, name), JSON.stringify(run));
+  const ingest = (...args) =>
+    execFileSync(process.execPath, [INGEST, '--json', ...args], {
+      cwd: PROJECT_ROOT,
+      encoding: 'utf8',
+      env: { ...process.env, MAILBOARD_ROOT: root },
+    });
+  const lastResult = (output) => JSON.parse(output.trim().split('\n').at(-1));
+
+  // Premier passage : liste sans corps, comme le canal Proton list-only.
+  writeRun('run-1.json', {
+    schemaVersion: 2,
+    runAt: '2026-09-22T09:05:00.000Z',
+    source,
+    collector: { status: 'ok', mode: 'fixture' },
+    messages: [message, { subject: 'Sans identifiant' }],
+  });
+  assert.equal(lastResult(ingest()).added, 1);
+  let messages = readJsonl(path.join(root, 'data', 'messages.jsonl'));
+  assert.equal(messages[0].hasBody, false);
+
+  // --dry : le run reste dans l'inbox, aucune donnée ne bouge.
+  writeRun('run-2.json', {
+    schemaVersion: 2,
+    runAt: '2026-09-22T10:05:00.000Z',
+    source,
+    collector: { status: 'ok', mode: 'fixture' },
+    messages: [{ ...message, body: 'Corps arrivé plus tard' }],
+  });
+  const snapshot = fs.readFileSync(path.join(root, 'data', 'messages.jsonl'), 'utf8');
+  ingest('--dry');
+  assert.equal(fs.readFileSync(path.join(root, 'data', 'messages.jsonl'), 'utf8'), snapshot);
+  assert.ok(fs.existsSync(path.join(inbox, 'run-2.json')));
+  assert.equal(fs.existsSync(path.join(root, 'data', 'bodies.jsonl')), false);
+
+  // Second passage réel : le corps tardif complète le message existant, un run
+  // illisible reste dans l'inbox, un run déjà connu est seulement archivé.
+  fs.writeFileSync(path.join(inbox, 'broken.json'), '{ pas du json');
+  fs.copyFileSync(path.join(archive, 'run-1.json'), path.join(inbox, 'run-1.json'));
+
+  const result = lastResult(ingest());
+  assert.deepEqual(
+    { runs: result.runs, added: result.added, dupes: result.dupes, bodiesAdded: result.bodiesAdded },
+    { runs: 1, added: 0, dupes: 1, bodiesAdded: 1 },
+  );
+
+  messages = readJsonl(path.join(root, 'data', 'messages.jsonl'));
+  assert.equal(messages.length, 1);
+  assert.equal(messages[0].hasBody, true);
+  assert.equal(messages[0].seenCount, 2);
+  assert.equal(messages[0].lastSeenAt, '2026-09-22T10:05:00.000Z');
+  assert.equal(readJsonl(path.join(root, 'data', 'runs.jsonl')).length, 2);
+  assert.deepEqual(fs.readdirSync(inbox), ['broken.json']);
+  assert.deepEqual(fs.readdirSync(archive).sort(), ['run-1.json', 'run-2.json']);
+
+  const bodyProjection = readProjection(path.join(root, 'dashboard', 'bodies.js'), 'MAILBOARD_BODIES');
+  assert.equal(bodyProjection['proton-main:m-1'].text, 'Corps arrivé plus tard');
+});

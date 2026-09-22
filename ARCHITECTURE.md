@@ -22,7 +22,7 @@ peut être repris sans inspection manuelle après une panne.
 | collecte Gmail | 7/10 | données réelles présentes, mais collecte pilotée par la tâche externe |
 | collecte Proton/Edge | 7/10 | un run réel complet existe ; l'attachement Edge dépend encore d'une préparation locale |
 | JEV métier | 5/10 | adaptateur bien testé, aucune décision réelle persistée dans les données actuelles |
-| exploitation continue | 4/10 | pas d'orchestrateur unique, pas de CI, endpoint Edge indisponible lors du contrôle |
+| exploitation continue | 4/10 | pas d'orchestrateur unique, CI tests seulement, endpoint Edge indisponible lors du contrôle |
 
 Le bon nom de phase est donc : **socle validé, automatisation encore incomplète**.
 
@@ -30,7 +30,7 @@ Le bon nom de phase est donc : **socle validé, automatisation encore incomplèt
 
 Le contrôle local donne les résultats suivants :
 
-- 34 tests automatisés passent, aucun n'échoue ;
+- 44 tests automatisés passent, aucun n'échoue (22/09/2026) ;
 - 11 fichiers JavaScript passent `node --check` ;
 - `node ingest/ingest.mjs --dry` termine sans écriture ni appel JEV ;
 - 306 messages et 9 runs sont lisibles ;
@@ -289,24 +289,18 @@ composant ne décrit un cycle complet avec états, ordre et reprise. Le
 planificateur externe doit porter cette responsabilité. Les collecteurs ne
 doivent pas appeler l'ingesteur eux-mêmes.
 
-### Tests concentrés sur deux zones
+### Le dashboard n'a pas de test DOM
 
-Les 34 tests couvrent bien Proton et l'adaptateur JEV. Il manque un test fixture
-qui dépose plusieurs runs, lance l'ingestion dans un répertoire temporaire et
-compare les JSONL ainsi que les projections produites. Le dashboard n'a pas de
-test DOM.
+Les 44 tests couvrent Proton, l'adaptateur JEV, l'éditeur de settings et
+l'ingestion de bout en bout (runs v1/v2, identifiants partagés entre canaux,
+corps tardif, run rejoué, run illisible, `--dry`). Ils tournent en CI sur Linux
+et Windows (`.github/workflows/test.yml`). Le dashboard, lui, n'est vérifié
+qu'au niveau de ses projections.
 
 ### JEV reste dormant
 
 Le code existe, mais aucune décision métier réelle n'est conservée. Il serait
 prématuré d'utiliser ses scores pour trier les notifications.
-
-### Pas de dépôt Git initialisé
-
-Le dossier courant n'est pas un dépôt Git. Pour une expérimentation locale, ce
-n'est pas bloquant ; pour modifier les collecteurs ou le schéma sans perdre un
-état fonctionnel, l'absence d'historique et de retour arrière devient vite
-coûteuse.
 
 ## Prochain ordre de travail
 
@@ -316,34 +310,23 @@ Rendre le port CDP disponible après ouverture du profil attendu, puis exécuter
 `collect.mjs --check` dans les mêmes conditions que la tâche planifiée. Le but
 est d'obtenir une preuve répétable, pas seulement un essai interactif.
 
-### 2. Ajouter un test d'ingestion bout en bout
-
-Utiliser des runs fixtures v1 et v2, dont un doublon entre deux canaux. Le test
-doit contrôler `messages.jsonl`, `runs.jsonl`, `bodies.jsonl`, l'archive et les
-deux projections du dashboard.
-
-### 3. Lancer le shadow mode JEV métier
+### 2. Lancer le shadow mode JEV métier
 
 Activer JEV sur un petit lot réel sans changer l'ordre d'affichage ni les
 notifications. Conserver probabilités, latence, tokens, modèle et statut, puis
 comparer les décisions à un jugement humain.
 
-### 4. Formaliser l'orchestration
+### 3. Formaliser l'orchestration
 
 Le planificateur doit lancer chaque canal séparément, attendre les runs, lancer
 l'ingestion une fois et notifier seulement à partir du résultat canonique. Un
 canal en échec ne doit pas annuler les autres.
 
-### 5. Tester le dashboard
+### 4. Tester le dashboard
 
 Un test navigateur court suffit au départ : ouverture en `file://`, nombre
 de messages, filtre de source, recherche, expansion d'un corps et persistance de
 l'état traité.
-
-### 6. Initialiser l'historique du projet
-
-Créer un dépôt Git, ignorer `.venv`, `channels.local.json`, les données privées et
-les profils, puis enregistrer cet état fonctionnel avant de toucher aux contrats.
 
 ## Décision d'architecture à conserver
 
