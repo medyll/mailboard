@@ -72,7 +72,9 @@ const config = (url, over = {}) => ({
   apiKey: 'clé-de-test',
   questions: QUESTIONS,
   questionSet: 'test-v1',
-  timeoutMs: 500,
+  // Large : le premier appel HTTP d'un runner CI froid dépasse parfois 500 ms.
+  // Le test de timeout fixe sa propre valeur.
+  timeoutMs: 5000,
   concurrency: 2,
   profile: { send: false, file: null, maxChars: 4000 },
   ...over,
