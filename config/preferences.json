@@ -1,0 +1,101 @@
+{
+  "$comment": "Ce que vous VOULEZ, par opposition au CV qui dit ce que vous savez faire. Fichier versionné, éditable à la main : ajouter une entrée suffit, aucun code à toucher. Aucune donnée sensible ici — des goûts techniques, pas une identité.",
+  "schemaVersion": 1,
+  "updatedAt": "2026-09-22",
+
+  "$strength": {
+    "blocker": "rédhibitoire — l'offre est signalée, jamais supprimée",
+    "strong": "compte beaucoup dans le score",
+    "mild": "compte un peu"
+  },
+  "weights": { "blocker": 4, "strong": 2, "mild": 1 },
+
+  "$preferences": "kind: pro (attire) | con (repousse). match.keywords est comparé en minuscules à l'expéditeur, l'objet et le résumé.",
+  "preferences": [
+    {
+      "id": "java",
+      "kind": "con",
+      "strength": "blocker",
+      "label": "Java / J2EE",
+      "note": "Au CV mais non souhaité. Déclaré le 2026-09-22.",
+      "match": { "keywords": ["java", "j2ee", "jee", "spring", "spring boot", "kotlin", "jakarta"] }
+    },
+    {
+      "id": "python",
+      "kind": "con",
+      "strength": "strong",
+      "label": "Python",
+      "note": "Très peu pratiqué, non souhaité comme stack principale. Déclaré le 2026-09-22.",
+      "match": { "keywords": ["python", "django", "flask", "fastapi", "pandas"] }
+    },
+    {
+      "id": "hors-metier",
+      "kind": "con",
+      "strength": "blocker",
+      "label": "Hors métier",
+      "note": "Les agrégateurs poussent des offres sans rapport : immobilier, commerce, santé.",
+      "match": {
+        "keywords": [
+          "conseiller immobilier", "agent immobilier", "expert-comptable", "télésecrétaire",
+          "médecin", "infirmier", "assistant commercial", "conseiller en clientèle",
+          "développement commercial", "développeur commercial", "vrp", "galénique"
+        ]
+      }
+    },
+
+    {
+      "id": "node-ts",
+      "kind": "pro",
+      "strength": "strong",
+      "label": "Node.js / TypeScript",
+      "note": "Dérivé du CV. À corriger si le souhait diverge du parcours.",
+      "match": { "keywords": ["node", "node.js", "nodejs", "typescript", "nestjs", "express"] }
+    },
+    {
+      "id": "front-moderne",
+      "kind": "pro",
+      "strength": "strong",
+      "label": "React / Svelte",
+      "note": "Dérivé du CV.",
+      "match": { "keywords": ["react", "svelte", "next.js", "nextjs", "vue", "frontend", "front-end"] }
+    },
+    {
+      "id": "lead",
+      "kind": "pro",
+      "strength": "strong",
+      "label": "Lead / architecture",
+      "note": "Séniorité visée : 20 ans d'expérience, rôle de lead.",
+      "match": { "keywords": ["lead", "tech lead", "architecte", "architect", "staff", "principal", "senior", "cto"] }
+    },
+    {
+      "id": "remote",
+      "kind": "pro",
+      "strength": "mild",
+      "label": "Télétravail",
+      "match": { "keywords": ["télétravail", "teletravail", "remote", "distanciel", "full remote"] }
+    },
+    {
+      "id": "nice",
+      "kind": "pro",
+      "strength": "mild",
+      "label": "Nice et alentours",
+      "match": { "keywords": ["nice", "sophia antipolis", "alpes-maritimes", "cagnes", "antibes", "monaco"] }
+    },
+    {
+      "id": "ia",
+      "kind": "pro",
+      "strength": "mild",
+      "label": "IA / agents",
+      "note": "Sujet de la période d'études 2025-2026.",
+      "match": { "keywords": ["ia générative", "llm", "agent", "agentique", "machine learning", "ai engineer"] }
+    },
+    {
+      "id": "php",
+      "kind": "pro",
+      "strength": "mild",
+      "label": "PHP / Symfony",
+      "note": "Dérivé du CV, sans enthousiasme déclaré — baisser en con si l'envie n'y est pas.",
+      "match": { "keywords": ["php", "symfony", "laravel"] }
+    }
+  ]
+}

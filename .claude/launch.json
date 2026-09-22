@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "mailboard",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["--yes", "serve", "dashboard", "-l", "4178"],
+      "port": 4178
+    }
+  ]
+}

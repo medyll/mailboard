@@ -1,0 +1,97 @@
+{
+  "$comment": "Modèle de registre de canaux. Copier en channels.local.json (ignoré par Git) et adapter. Aucun mot de passe, cookie, jeton ni code 2FA ici : un secret passe par une variable d'environnement, jamais par ce fichier.",
+  "schemaVersion": 1,
+  "$axes": {
+    "channelKind": "nature des données — mailbox | feed | messaging | file",
+    "accessMode": "moyen de lecture — connector | api | browser | drop",
+    "provider": "système hôte — gmail | proton | outlook | rss | …",
+    "$note": "Les trois axes sont indépendants : gmail+api et gmail+browser sont deux canaux valides du même fournisseur."
+  },
+  "defaults": {
+    "windowHours": 12,
+    "folders": [
+      "inbox"
+    ],
+    "readMode": "list-only",
+    "maxItems": 100,
+    "criteria": [
+      "emploi",
+      "france-travail"
+    ]
+  },
+  "channels": [
+    {
+      "sourceId": "gmail-primary",
+      "enabled": true,
+      "channelKind": "mailbox",
+      "accessMode": "connector",
+      "provider": "gmail",
+      "accountHint": "gmail-primary@example.test",
+      "collection": {
+        "windowHours": 12
+      }
+    },
+    {
+      "$comment": "Même boîte Gmail, lue par navigateur : utile si le connecteur est indisponible. Ne jamais activer les deux en même temps — les id produits ne sont pas les mêmes et chaque sourceId dédupliqué à part.",
+      "sourceId": "gmail-browser",
+      "enabled": false,
+      "channelKind": "mailbox",
+      "accessMode": "browser",
+      "provider": "gmail",
+      "endpoint": "https://mail.google.com/",
+      "accountHint": "gmail-browser@example.test",
+      "browser": {
+        "family": "edge",
+        "attachMode": "cdp",
+        "profile": "Default",
+        "tabOwnership": "collector"
+      },
+      "collection": {
+        "windowHours": 12,
+        "folders": [
+          "inbox"
+        ],
+        "readMode": "list-only",
+        "maxItems": 100
+      }
+    },
+    {
+      "sourceId": "proton-perso",
+      "enabled": false,
+      "channelKind": "mailbox",
+      "accessMode": "browser",
+      "provider": "proton",
+      "endpoint": "https://mail.proton.me/",
+      "accountHint": "proton-perso@example.test",
+      "browser": {
+        "family": "edge",
+        "attachMode": "cdp",
+        "profile": "Default",
+        "tabOwnership": "collector"
+      },
+      "collection": {
+        "windowHours": 12,
+        "folders": [
+          "inbox"
+        ],
+        "readMode": "list-only",
+        "maxItems": 100
+      }
+    },
+    {
+      "sourceId": "rss-france-travail",
+      "enabled": false,
+      "channelKind": "feed",
+      "accessMode": "api",
+      "provider": "rss",
+      "endpoint": "env:MAILBOARD_FEED_FRANCE_TRAVAIL",
+      "collection": {
+        "windowHours": 24,
+        "maxItems": 50,
+        "criteria": [
+          "france-travail"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mailboard — veille emploi</title>
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="settings-component/settings-component.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <h1>Mailboard</h1>
+        <p class="sub" id="freshness">chargement…</p>
+      </div>
+      <div class="topbar-actions">
+        <input type="search" id="search" placeholder="Filtrer (expéditeur, objet…)" />
+        <button id="settings-open" type="button" title="Modifier les réglages locaux">Réglages</button>
+        <button id="theme-toggle" type="button" title="Thème clair / sombre">◐</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="kpis" id="kpis"></section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Couverture des runs</h2>
+          <span class="hint" id="coverage-hint"></span>
+        </div>
+        <div class="sparkbar" id="coverage"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Messages</h2>
+          <div class="filters" id="filters"></div>
+        </div>
+        <div class="toggles">
+          <label>
+            Source
+            <select class="source-filter" id="source-filter" aria-label="Filtrer par source"></select>
+          </label>
+          <label><input type="checkbox" id="hide-done" /> Masquer les traités</label>
+          <label><input type="checkbox" id="hide-blocked" /> Masquer les rédhibitoires</label>
+          <span class="hint" id="count-hint"></span>
+        </div>
+        <ul class="messages" id="messages"></ul>
+        <p class="empty" id="empty" hidden>Rien ne correspond à ce filtre.</p>
+      </section>
+    </main>
+
+    <settings-component id="settings" hidden>
+      <settings-backdrop data-settings-close></settings-backdrop>
+      <settings-dialog role="dialog" aria-modal="true" aria-labelledby="settings-title">
+        <settings-header>
+          <div>
+            <h2 id="settings-title">Réglages</h2>
+            <p id="settings-subtitle">3 fichiers de configuration</p>
+          </div>
+          <button class="settings-close" type="button" data-settings-close aria-label="Fermer">×</button>
+        </settings-header>
+        <settings-layout>
+          <settings-nav aria-label="Sections des réglages"></settings-nav>
+          <settings-content></settings-content>
+        </settings-layout>
+        <settings-footer>
+          <p id="settings-status" role="status">Aucune modification</p>
+          <group-control>
+            <button id="settings-reload" type="button" hidden>Recharger</button>
+            <button id="settings-cancel" type="button">Annuler</button>
+            <button id="settings-save" type="button" disabled>Enregistrer et reconstruire</button>
+          </group-control>
+        </settings-footer>
+      </settings-dialog>
+    </settings-component>
+
+    <script src="data.js"></script>
+    <script src="settings-runtime.js"></script>
+    <script src="app.js"></script>
+    <script src="settings-component/settings-component.js"></script>
+  </body>
+</html>

@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Sondes Proton — page témoin</title>
+<style>
+  :root { color-scheme: light dark; font-family: ui-monospace, monospace; }
+  body { margin: 0; padding: 1.5rem; max-width: 60rem; }
+  h1 { font-size: 1.1rem; margin: 0 0 .25rem; }
+  p.hint { color: #6b7280; margin: 0 0 1.5rem; font-size: .85rem; }
+  ol { padding-left: 1.25rem; }
+  li { margin: .2rem 0; }
+  .ok::marker { content: "✔ "; }
+  .ko::marker { content: "✖ "; }
+  .ko { color: #c2410c; }
+  #verdict { font-weight: 700; margin: 1rem 0; }
+  pre { background: #0001; padding: .75rem; overflow-x: auto; font-size: .8rem; }
+  #mailbox { display: none; }
+</style>
+</head>
+<body>
+
+<h1>Sondes Proton — page témoin</h1>
+<p class="hint">
+  Exécute les sélecteurs réels de <code>proton.mjs</code> contre un DOM qui
+  imite une liste Proton. Une sonde cassée se voit ici avant de casser un run.
+  Servir la racine du dépôt puis ouvrir ce fichier (voir le README du collecteur).
+</p>
+
+<div id="verdict">…</div>
+<ol id="results"></ol>
+<pre id="dump"></pre>
+
+<!--
+  Le DOM témoin est masqué mais bien présent : les sondes interrogent
+  `document`, comme dans la vraie page. Ligne 1 non lue avec identifiant,
+  ligne 2 avec identifiant, ligne 3 sans identifiant pour exercer l'empreinte
+  de repli, avec les anciennes classes CSS plutôt que les attributs de test.
+
+  Les valeurs viennent de la vraie boîte, relevées au palier B : la classe
+  `unread` (et non `item-is-unread`), et un `datetime` localisé en français.
+-->
+<div id="mailbox">
+  <header>
+    <button data-testid="heading:userdropdown" title="user-01@example.test">ML</button>
+  </header>
+  <ul>
+    <li class="item-container unread" data-element-id="msg-aaa">
+      <span data-testid="message-column:sender-address">Recrutement ACME</span>
+      <span data-testid="message-column:subject">Proposition d'entretien — Lead Front</span>
+      <span class="item-subject-preview">Deux créneaux vous sont proposés cette semaine.</span>
+      <time datetime="2026-09-22T16:42:00.000Z">16:42</time>
+    </li>
+    <li class="item-container" data-element-id="msg-bbb">
+      <span data-testid="message-column:sender-address">France Travail &lt;user-02@example.test&gt;</span>
+      <span data-testid="message-column:subject">Votre actualisation est disponible</span>
+      <span class="item-subject-preview">Pensez à actualiser votre situation avant le 15.</span>
+      <time datetime="mardi 22 septembre 2026 à 09:05" title="mardi 22 septembre 2026 à 09:05">09:05</time>
+    </li>
+    <li class="item-container">
+      <span class="item-senders">Newsletter Svelte</span>
+      <span class="item-subject">Svelte 6 est là</span>
+      <time datetime="2026-09-21T08:00:00.000Z">hier</time>
+    </li>
+  </ul>
+</div>
+
+<script type="module">
+import { PROBE, rowsExpression, identify } from './proton.mjs';
+
+const results = document.getElementById('results');
+let failures = 0;
+
+const check = (label, condition, detail) => {
+  if (!condition) failures++;
+  const li = document.createElement('li');
+  li.className = condition ? 'ok' : 'ko';
+  li.textContent = condition ? label : `${label} — obtenu : ${JSON.stringify(detail)}`;
+  results.append(li);
+};
+
+// Les sondes sont des chaînes évaluées par CDP dans la page ; ici on les
+// exécute de la même façon, sans les recopier.
+const run = (expression) => (0, eval)(expression);
+
+const account = run(PROBE.account);
+check('compte lu depuis l en-tête', account === 'user-01@example.test', account);
+
+const needsUser = run(PROBE.needsUser);
+check('boîte ouverte : pas de page de connexion', needsUser === false, needsUser);
+
+const count = run(PROBE.rowCount);
+check('lignes comptées via data-element-id', count.selector === '[data-element-id]' && count.count === 2, count);
+
+const observe = run(rowsExpression(100, false));
+check('palier B : aucun contenu de mail ne sort', observe.rows.every((r) => !('subject' in r) && !('from' in r)), observe.rows[0]);
+check('palier B : état non lu détecté', observe.rows.filter((r) => r.unread).length === 1, observe.rows);
+check('palier B : date ISO conservée', observe.rows[0]?.date === '2026-09-22T16:42:00.000Z', observe.rows[0]);
+// La page ne convertit rien : elle rend la valeur brute, la conversion se fait
+// côté Node, où elle est testable. C'est le format réel observé sur Proton.
+check('date localisée transmise telle quelle', observe.rows[1]?.date === 'mardi 22 septembre 2026 à 09:05', observe.rows[1]);
+
+const full = run(rowsExpression(100, true));
+check('palier C : objet lu via attribut de test', full.rows[0]?.subject?.startsWith('Proposition'), full.rows[0]?.subject);
+check('palier C : extrait lu', full.rows[0]?.snippet?.startsWith('Deux créneaux'), full.rows[0]?.snippet);
+check('palier C : troncature respectée', run(rowsExpression(1, true)).rows.length === 1, full.rows.length);
+
+// La troisième ligne n'a ni attribut de test ni identifiant : elle exerce les
+// sélecteurs de repli et l'empreinte.
+const legacy = run(`(() => {
+  const nodes = [...document.querySelectorAll('.item-container')];
+  const node = nodes[nodes.length - 1];
+  const pick = (list) => { for (const s of list) { const el = node.querySelector(s); const t = (el?.textContent || '').trim(); if (t) return t; } return null; };
+  return { id: node.getAttribute('data-element-id'), from: pick(['[data-testid="message-column:sender-address"]', '.item-senders']), subject: pick(['[data-testid="message-column:subject"]', '.item-subject']) };
+})()`);
+check('repli sur anciennes classes CSS', legacy.from === 'Newsletter Svelte' && legacy.subject === 'Svelte 6 est là', legacy);
+
+const hash = (s) => [...s].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7).toString(16);
+const fp = identify({ ...legacy, date: '2026-09-21T08:00:00.000Z' }, { sourceId: 'proton-perso', folder: 'inbox' }, hash);
+check('ligne sans identifiant : empreinte, pas de position', fp.identityQuality === 'fingerprint' && fp.id.startsWith('fp-'), fp);
+check(
+  'empreinte stable pour la même ligne',
+  fp.id === identify({ ...legacy, date: '2026-09-21T08:00:00.000Z' }, { sourceId: 'proton-perso', folder: 'inbox' }, hash).id,
+  fp.id,
+);
+check(
+  'empreinte différente d un autre canal',
+  fp.id !== identify({ ...legacy, date: '2026-09-21T08:00:00.000Z' }, { sourceId: 'autre-canal', folder: 'inbox' }, hash).id,
+  fp.id,
+);
+
+// Page de connexion : la sonde doit le voir, sinon le collecteur lirait une
+// boîte vide en croyant la session valide.
+const login = document.createElement('input');
+login.name = 'password';
+document.body.append(login);
+check('page de connexion détectée', run(PROBE.needsUser) === true, run(PROBE.needsUser));
+login.remove();
+
+document.getElementById('verdict').textContent = failures
+  ? `${failures} sonde(s) en échec sur ${results.children.length}`
+  : `${results.children.length} sondes vertes`;
+document.getElementById('dump').textContent = JSON.stringify(full.rows, null, 1);
+window.__PROBE_FAILURES = failures;
+</script>
+</body>
+</html>

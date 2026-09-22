@@ -1,0 +1,41 @@
+# Registre de canaux local — adresses, profils navigateur (COLLECTE_MULTICANAL.md)
+config/channels.local.json
+
+# Profil : CV source, texte extrait et digest. Données personnelles —
+# le dossier est suivi par Git uniquement pour son README et son extracteur.
+profile/*
+!profile/README.md
+!profile/extract.mjs
+
+# Secrets (TYPESAFE_API_KEY et compagnie — JEV_INTEGRATION.md)
+.env
+.env.*
+!.env.example
+
+# Données générées du dashboard — elles contiennent les messages locaux.
+dashboard/data.js
+dashboard/bodies.js
+
+# Runtime collecteur Python (collectors/browser-mail)
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Node, si un package.json apparaît un jour
+node_modules/
+
+# Traces navigateur : jamais de DOM brut ni de capture par défaut
+collectors/**/traces/
+collectors/**/screenshots/
+
+# OS
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Python du collecteur navigateur (uv)
+collectors/browser-mail/.venv/
+collectors/browser-mail/uv.lock
+
+data

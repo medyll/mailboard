@@ -1,0 +1,63 @@
+{
+  "$comment": "Critères de tri de la veille. Fichier VERSIONNÉ, éditable à la main : c'est ici qu'on ajoute, retire ou reformule un critère. Aucune adresse personnelle, aucun secret.",
+  "schemaVersion": 1,
+  "updatedAt": "2026-09-22",
+
+  "defaults": {
+    "windowHours": 12,
+    "fallbackCategory": "autre"
+  },
+
+  "criteria": [
+    {
+      "id": "emploi",
+      "label": "Recherche d'emploi",
+      "enabled": true,
+      "color": { "light": "#3b5bdb", "dark": "#748ffc" },
+      "description": "Tout mail lié à la recherche d'emploi : candidature, offre, recruteur, entretien, relance.",
+      "profileMatch": true,
+      "queries": {
+        "gmail": "newer_than:{windowHours}h (candidature OR poste OR entretien OR offre OR recruteur OR cabinet OR opportunité OR alternance OR CDI)",
+        "proton": "candidature OR poste OR entretien OR offre OR recruteur OR opportunité",
+        "keywords": [
+          "candidature", "poste", "entretien", "offre d'emploi", "offre d emploi", "recruteur",
+          "recrute", "recrutement", "cabinet", "opportunité", "CDI", "CDD", "freelance", "mission",
+          "alternance", "stage", "emploi", "développeur", "developpeur", "tech lead", "devops",
+          "ingénieur", "fullstack", "full-stack", "salaire", "TJM"
+        ],
+        "$fromDomains": "Job boards et agrégateurs : l'expéditeur suffit à trancher, sans dépendre des mots de l'objet.",
+        "fromDomains": [
+          "hellowork.com", "indeed.com", "linkedin.com", "welcometothejungle.com", "apec.fr",
+          "monster.fr", "talent.io", "cadremploi.fr", "regionsjob.com", "meteojob.com",
+          "jobteaser.com", "glassdoor.com", "otta.com", "malt.fr", "freelance-info.fr"
+        ]
+      }
+    },
+    {
+      "id": "france-travail",
+      "label": "France Travail",
+      "enabled": true,
+      "color": { "light": "#c2410c", "dark": "#ff922b" },
+      "description": "Mails de France Travail (ex-Pôle emploi) : actualisation, convocation, courrier, suivi.",
+      "profileMatch": false,
+      "queries": {
+        "gmail": "newer_than:{windowHours}h (from:francetravail.fr OR from:pole-emploi.fr OR \"France Travail\" OR \"Pôle emploi\")",
+        "proton": "France Travail OR Pôle emploi OR francetravail",
+        "keywords": ["france travail", "pôle emploi", "actualisation", "identifiant demandeur", "convocation"],
+        "fromDomains": ["francetravail.fr", "pole-emploi.fr", "pole-emploi.net"]
+      }
+    }
+  ],
+
+  "$aliases": "Catégories historiques → critère actuel. Évite de réécrire messages.jsonl quand un critère est renommé ou fusionné.",
+  "aliases": {
+    "candidatures": "emploi",
+    "recruteurs": "emploi"
+  },
+
+  "fallback": {
+    "id": "autre",
+    "label": "Autre",
+    "color": { "light": "#6b7280", "dark": "#9aa1ad" }
+  }
+}
