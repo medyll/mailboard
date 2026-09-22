@@ -108,6 +108,19 @@ Il faut `TYPESAFE_API_KEY` dans l'environnement. Sans clé, l'ingestion se
 déroule à l'identique et chaque message porte `jev.status: "skipped"`. `--dry`
 coupe les appels même avec `--jev` : une simulation ne coûte rien.
 
+Pour évaluer l'historique déjà ingéré, par lots (du plus récent au plus ancien) :
+
+```bash
+node ingest/jev-backfill.mjs --dry --source gmail-primary --limit 20
+node ingest/jev-backfill.mjs --source gmail-primary --limit 20
+```
+
+Lancer la commande vaut opt-in, même si `config/jev.json` porte
+`enabled: false`. Sont repris les messages sans bloc `jev`, ou en `skipped` /
+`error` ; `--stale` ajoute les décisions dont le jeu de questions ou l'entrée a
+changé. `--limit` est plafonné à 200. Une erreur ne remplace jamais une décision
+`ok` déjà acquise, et le dashboard est régénéré à la fin.
+
 ```bash
 node --test
 ```

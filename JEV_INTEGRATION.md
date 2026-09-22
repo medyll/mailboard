@@ -218,7 +218,8 @@ implémentation devrait préserver cette propriété :
 - un appel par nouveau message, contenant toutes les questions ;
 - aucun appel pour les doublons ni en mode `--dry` ;
 - une option explicite `--jev` pendant l'expérimentation ;
-- une commande séparée de réévaluation avant tout éventuel backfill.
+- une commande séparée de réévaluation avant tout éventuel backfill
+  (implémentée : `ingest/jev-backfill.mjs`, voir le README).
 
 L'API HTTP documentée est `POST https://api.typesafe.ai/v1/systemone`. Le corps
 porte `model`, `state` et `questions`, avec un en-tête `Authorization: Bearer …`.

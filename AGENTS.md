@@ -70,7 +70,8 @@ suivant, sans créer de second run canonique.
 - Le CV de `profile/` ne quitte jamais la machine : seul `profile/profile.jev.md`,
   expurgé, est transmis à un modèle.
 - `data/messages.jsonl` est append-only en pratique ; il n'est réécrit en entier que
-  pour mettre à jour `lastSeenAt` / `seenCount`. Ne jamais l'éditer à la main.
+  pour mettre à jour `lastSeenAt` / `seenCount` / `hasBody`, ou les blocs `jev`
+  via `node ingest/jev-backfill.mjs`. Ne jamais l'éditer à la main.
 - `dashboard/data.js` et `dashboard/bodies.js` sont **générés**. Toute modification
   manuelle sera écrasée au run suivant.
 - Les corps sont stockés dans `data/bodies.jsonl`, séparés de l'index : `messages.jsonl`
