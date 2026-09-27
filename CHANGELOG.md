@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.5] - 2026-09-27
+**Features:**
+- optional mail body excerpt in the JEV state
+- tooled blind reviewer to measure JEV against mail bodies
+
+**Tests:**
+- expect the 11 MCP tools
+
+**Chores:**
+- sync npm lockfile [skip ci]
+
+
+
 ## [0.1.4] - 2026-09-27
 **Documentation:**
 - prove cold Edge cycle and wire it into the scheduled task
