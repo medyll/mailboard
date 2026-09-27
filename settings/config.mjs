@@ -132,6 +132,10 @@ function validateJev(config, add) {
   validateInteger(config.concurrency, 'jev.concurrency', 1, 20, add);
   validateInteger(config.retriesPerRun, 'jev.retriesPerRun', 0, 5, add);
   validateInteger(config.profile?.maxChars, 'jev.profile.maxChars', 500, 50000, add);
+  if (config.body !== undefined) {
+    if (typeof config.body?.send !== 'boolean') add('jev.body.send', 'Sending the body must be true or false.');
+    validateInteger(config.body?.maxChars ?? 1500, 'jev.body.maxChars', 200, 12000, add);
+  }
   for (const [key, value] of Object.entries(config.thresholds ?? {})) {
     if (key.startsWith('$')) continue;
     if (value !== null && (!Number.isFinite(value) || value < 0 || value > 1)) {

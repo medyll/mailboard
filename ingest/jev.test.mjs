@@ -230,3 +230,25 @@ test('sans préférences déclarées, rien n est ajouté à l état', async () =
   s.close();
   assert.ok(!('candidatePreferences' in s.seen[0].body.state));
 });
+
+test('corps du mail : jamais envoyé par défaut, extrait borné quand body.send est actif', async () => {
+  const msg = { ...message(), bodyText: 'Malheureusement, votre candidature n’a pas été retenue. '.repeat(10) };
+  assert.ok(!('body' in buildState(msg).message), 'sans option, pas de corps');
+  assert.ok(!('body' in buildState(msg, { body: { send: false, maxChars: 50 } }).message));
+  const state = buildState(msg, { body: { send: true, maxChars: 50 } });
+  assert.equal(state.message.body.length, 50);
+  assert.notEqual(fingerprint(state), fingerprint(buildState(msg)), 'l’empreinte change : l’ancienne décision devient périmée');
+
+  const s = await server(() => ({ status: 200, body: OK_BODY }));
+  const off = { ...message(), bodyText: 'corps secret' };
+  await enrich([off], config(s.url), { criteria: { profileMatchIds: ['emploi'] } });
+  const on = { ...message(), bodyText: 'corps utile' };
+  await enrich([on], config(s.url, { body: { send: true, maxChars: 1500 } }), { criteria: { profileMatchIds: ['emploi'] } });
+  s.close();
+
+  assert.ok(!JSON.stringify(s.seen[0].body).includes('corps secret'));
+  assert.equal(s.seen[1].body.state.message.body, 'corps utile');
+  assert.equal(off.jev.withBody, undefined);
+  assert.equal(on.jev.withBody, true);
+  assert.ok(!JSON.stringify(on.jev).includes('corps utile'), 'le corps n’est pas recopié dans la décision');
+});

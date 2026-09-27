@@ -227,6 +227,10 @@ export function loadJev({ cliFlag = false, dry = false, root, profileRoot = root
       available: hasProfile,
       maxChars: raw.profile?.maxChars ?? 4000,
     },
+    body: {
+      send: raw.body?.send === true,
+      maxChars: Number(raw.body?.maxChars ?? 1500),
+    },
   };
 }
 

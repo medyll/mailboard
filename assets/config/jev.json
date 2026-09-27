@@ -13,6 +13,11 @@
     "file": "profile/profile.jev.md",
     "maxChars": 4000
   },
+  "body": {
+    "send": false,
+    "$send": "Sends an excerpt of the mail body to JEV, on top of subject and summary. The subject alone misleads (a rejection titled \"News about your application\"), but the mail content then leaves the machine. Off by default.",
+    "maxChars": 1500
+  },
   "questions": [
     {
       "id": "needsReply",

@@ -23,6 +23,12 @@
     "maxChars": 4000
   },
 
+  "body": {
+    "send": false,
+    "$send": "Envoie un extrait du corps du mail à JEV, en plus de l'objet et du résumé. L'objet seul trompe (un refus titré « Des nouvelles de votre candidature »), mais le contenu du mail quitte alors la machine. Désactivé par défaut.",
+    "maxChars": 1500
+  },
+
   "questions": [
     {
       "id": "needsReply",

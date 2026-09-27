@@ -23,8 +23,8 @@ export function senderDomain(from) {
 }
 
 /** État minimal : strictement ce dont les questions ont besoin. */
-export function buildState(message) {
-  return {
+export function buildState(message, { body } = {}) {
+  const state = {
     message: {
       currentCategory: message.category ?? null,
       senderDomain: senderDomain(message.from),
@@ -32,6 +32,12 @@ export function buildState(message) {
       summary: message.summary ?? '',
     },
   };
+  // Option `body.send` (config/jev.json), désactivée par défaut : un extrait du
+  // corps part chez le fournisseur. L'objet seul trompe (« Des nouvelles de
+  // votre candidature… » cache un refus), mais le contenu du mail quitte alors
+  // la machine. `bodyText` est posé par l'appelant, jamais persisté.
+  if (body?.send && message.bodyText) state.message.body = message.bodyText.slice(0, body.maxChars ?? 1500);
+  return state;
 }
 
 /** Empreinte des champs envoyés : dit si une décision correspond encore à son entrée. */
@@ -227,13 +233,14 @@ export async function enrich(messages, config, { criteria, preferences, onMetric
       return;
     }
 
-    const state = buildState(message);
+    const state = buildState(message, { body: config.body });
     // L'empreinte couvre l'état du message ; profil et préférences sont
     // identiques d'un message à l'autre dans un même run.
     const base = {
       schemaVersion: 1,
       questionSet: config.questionSet,
       inputFingerprint: fingerprint(state),
+      ...(state.message.body ? { withBody: true } : {}),
       evaluatedAt: new Date().toISOString(),
     };
 

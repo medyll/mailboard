@@ -308,11 +308,14 @@ async function ingest() {
   // Enrichissement : après identification des nouveaux messages, avant toute
   // écriture. Un échec devient un statut porté par le message, pas une
   // interruption du run.
+  // Le corps n'accompagne le message que le temps de l'appel (option body.send).
+  if (jev.body?.send) for (const m of newMessages) m.bodyText = bodyByKey.get(m.key)?.text ?? null;
   const jevStats = await enrich(newMessages, jev, {
     criteria,
     preferences: preferences.entries.length ? preferences.digest() : null,
     onMetric: (m) => jevMetrics.push({ ...m, at: new Date().toISOString() }),
   });
+  for (const m of newMessages) delete m.bodyText;
 
   // lastSeenAt/seenCount ont pu changer sur des lignes existantes → réécriture complète
   if (dupes > 0 || touched) rewriteJsonl(MESSAGES, [...byKey.values()]);

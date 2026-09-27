@@ -331,10 +331,34 @@ catégorie d'événement s'accorde à 78 %, l'adéquation au poste à moins d'un
 niveau dans 82 % des cas. Les écarts se concentrent là où l'objet trompe : des
 refus (« Des nouvelles de votre candidature… ») classés `administrative`,
 `hasDeadline` levé à tort 7 fois sur 8, deux demandes de réponse manquées au
-seuil 0,5. JEV ne reçoit que l'objet et le résumé ; lui envoyer un extrait du
-corps corrigerait probablement ces cas, mais fait sortir le contenu des mails
-vers le fournisseur — une décision à prendre explicitement, pas un réglage par
-défaut.
+seuil 0,5. JEV ne reçoit que l'objet et le résumé.
+
+### Option `body.send`
+
+`config/jev.json` → `body: { send, maxChars }`, **désactivée par défaut** : un
+extrait du corps (1 500 caractères) accompagne l'objet et le résumé. Le contenu
+du mail part alors chez le fournisseur. L'empreinte d'entrée inclut le corps :
+activer l'option rend les anciennes décisions périmées, et
+`jev-backfill --stale` les refait. Une décision prise avec le corps porte
+`withBody: true`.
+
+Mesure sur les mêmes 45 mails (27/09/2026), JEV contre le relecteur :
+
+| question | objet seul | avec corps |
+|---|---|---|
+| eventKind | accord 78 % | accord 93 % |
+| isOffer (seuil 0,5) | 6 manqués, 3 faux positifs | 0 manqué, 6 faux positifs |
+| roleFit | 82 % à moins d'un niveau | 92 % |
+| attention | 58 % à moins d'un niveau | 71 % |
+| stackMatch (seuil 0,5) | 6 manqués, 8 faux positifs | 2 manqués, 7 faux positifs |
+| needsReply (seuil 0,5) | 2 manqués, 1 faux positif | 0 manqué, 12 faux positifs |
+| hasDeadline (seuil 0,5) | 7 faux positifs | 10 faux positifs |
+
+Le corps corrige la classification ; il rend en revanche JEV sensible aux
+formules d'appel des newsletters (« envoyez votre candidature rapidement »),
+d'où les faux positifs de `needsReply` et `hasDeadline`. Ces deux questions
+demandent un seuil calibré sur davantage de « oui » avant tout usage. Coût
+observé : environ 2 700 tokens par appel avec profil et corps.
 
 ## Critère d'arrêt
 

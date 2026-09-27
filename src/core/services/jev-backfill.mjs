@@ -60,7 +60,16 @@ function needsEvaluation(m) {
   if (j.status === 'skipped') return j.reason !== 'no-question-for-category';
   if (j.status === 'error') return true;
   if (!STALE) return false;
-  return j.questionSet !== jev.questionSet || j.inputFingerprint !== fingerprint(buildState(m));
+  return j.questionSet !== jev.questionSet || j.inputFingerprint !== fingerprint(buildState(withBody(m), { body: jev.body }));
+}
+
+// Option body.send : le corps stocké accompagne une copie du message, le temps
+// de l'empreinte et de l'appel ; il n'est jamais réécrit dans messages.jsonl.
+const bodies = jev.body?.send
+  ? new Map(readJsonl(path.join(ROOT, 'data', 'bodies.jsonl')).map((b) => [b.key ?? messageKey(b.sourceId, b.id), b.text]))
+  : new Map();
+function withBody(m) {
+  return jev.body?.send ? { ...m, bodyText: bodies.get(keyOf(m)) ?? null } : m;
 }
 
 const messages = readJsonl(MESSAGES);
@@ -70,7 +79,7 @@ const eligible = messages
   .sort((a, b) => (a.date < b.date ? 1 : -1));
 
 // On évalue des copies : le fichier n'est réécrit qu'après tous les appels.
-const batch = eligible.slice(0, limit).map((m) => ({ ...m, category: criteria.resolveCategory(m.category) }));
+const batch = eligible.slice(0, limit).map((m) => ({ ...withBody(m), category: criteria.resolveCategory(m.category) }));
 
 const result = {
   type: 'mailboard.jev-backfill.result',
