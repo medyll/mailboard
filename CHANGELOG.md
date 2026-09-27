@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.4] - 2026-09-27
+**Documentation:**
+- prove cold Edge cycle and wire it into the scheduled task
+
+**Chores:**
+- sync npm lockfile [skip ci]
+
+
+
 ## [0.1.3] - 2026-09-27
 **Features:**
 - navigate with jev-ultrafast by default
