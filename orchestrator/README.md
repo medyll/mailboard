@@ -1,31 +1,33 @@
 # orchestrator
 
-Tient le cycle complet décrit dans [AGENTS.md](../AGENTS.md) : collecter,
-constater, ingérer une fois, décider de la notification.
+Runs the full cycle described in [AGENTS.md](../AGENTS.md): collect, check,
+ingest once, decide on notification. The package exposes the same cycle as
+`jobmailboard cycle` and as the `run_cycle` MCP tool.
 
 ```text
-agent (tâche planifiée) : collecte Gmail via connecteur → data/runs-inbox/
+agent (scheduled task): Gmail collection via connector → data/runs-inbox/
 node orchestrator/run-cycle.mjs
-  ├─ canaux browser, en série (profil Edge partagé) → run.ps1 --source <id>
-  ├─ canal sans run après tentative → run d'échec écrit par l'orchestrateur
-  ├─ canaux connector : vérifie seulement que leur run est arrivé
-  ├─ node ingest/ingest.mjs --json (une seule fois)
-  └─ dernière ligne : mailboard.cycle.result
+  ├─ browser channels, in series (shared Edge profile)
+  │    → collect.mjs --source <id>   (or run.ps1 --source <id> with MAILBOARD_PWSH)
+  ├─ channel with no run after its attempt → failure run written by the orchestrator
+  ├─ connector channels: only checks that their run arrived
+  ├─ node ingest/ingest.mjs --json (once)
+  └─ last line: mailboard.cycle.result
 ```
 
 ## Usage
 
-| commande | effet |
+| Command | Effect |
 |---|---|
-| `node orchestrator/run-cycle.mjs` | cycle complet |
-| `node orchestrator/run-cycle.mjs --retry-failed` | relance seulement les canaux browser en échec au cycle précédent, puis ingère |
-| `node orchestrator/run-cycle.mjs --skip-collect` | ingère ce qui attend dans l'inbox, sans collecter |
+| `node orchestrator/run-cycle.mjs` | full cycle |
+| `node orchestrator/run-cycle.mjs --retry-failed` | reruns only the browser channels that failed in the previous cycle, then ingests |
+| `node orchestrator/run-cycle.mjs --skip-collect` | ingests what waits in the inbox, without collecting |
 
-Code de sortie : `0` si l'ingestion a réussi, même si un canal a échoué (l'échec
-est tracé par un run et dans le résultat). `1` si l'ingestion a échoué ; les runs
-restent alors dans l'inbox pour le cycle suivant.
+Exit code: `0` when ingestion succeeded, even if a channel failed (the failure
+is recorded in a run and in the result). `1` when ingestion failed; runs then
+stay in the inbox for the next cycle.
 
-## Résultat
+## Result
 
 ```json
 {
@@ -33,29 +35,35 @@ restent alors dans l'inbox pour le cycle suivant.
   "ok": true,
   "notify": true,
   "added": 3,
-  "message": "Mailboard : 3 nouveau(x) message(s) — canal en échec : proton-perso (error)",
+  "message": "Mailboard: 3 new message(s) — failed channel(s): proton-perso (error)",
   "channels": { "proton-perso": "error", "gmail-primary": "delegated" },
   "ingest": { "type": "mailboard.ingest.result", "added": 3, "…": "…" }
 }
 ```
 
-Notifier **seulement** si `notify` vaut `true` ; `message` est le texte prêt à
-envoyer. Statuts de canal : ceux de `collector.status`
-([ingest/schema.md](../ingest/schema.md)), plus `delegated` (run connector
-présent) et `missing` (run connector absent).
+Notify **only** when `notify` is `true`; `message` is the text ready to send.
+Channel statuses: those of `collector.status`
+([ingest/schema.md](../ingest/schema.md)), plus `delegated` (connector run
+present) and `missing` (connector run absent).
 
-## État
+## State
 
-`data/cycle-state.json` est réécrit à chaque étape : un cycle interrompu montre
-où il s'est arrêté. `--retry-failed` le relit pour choisir les canaux à relancer.
+`data/cycle-state.json` is rewritten at each step: an interrupted cycle shows
+where it stopped. `--retry-failed` reads it back to choose which channels to
+rerun.
 
-## Variables
+## Environment variables
 
-- `MAILBOARD_CHANNEL_TIMEOUT_MS` : délai maximal par canal browser (5 min par défaut).
-- `MAILBOARD_PWSH` : exécutable PowerShell sous Windows (`pwsh` par défaut).
-- `MAILBOARD_ROOT` : racine des données (tests).
+- `MAILBOARD_CHANNEL_TIMEOUT_MS`: max duration per browser channel (5 min by
+  default).
+- `MAILBOARD_PWSH`: Windows only. When set (e.g. `pwsh`), browser channels go
+  through `collectors/browser-mail/run.ps1`, which starts the dedicated Edge
+  instance. Unset: the Node collector is called directly and expects a browser
+  already listening on the CDP port.
+- `MAILBOARD_ROOT`: data root.
+- `MAILBOARD_CONFIG_DIR`: configuration folder.
 
 ## Tests
 
-`node --test orchestrator/run-cycle.test.mjs` — collecteur simulé, vrai
-ingesteur dans un répertoire temporaire.
+`node --test orchestrator/run-cycle.test.mjs` — simulated collector, real
+ingester in a temporary directory.

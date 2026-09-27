@@ -1,60 +1,59 @@
-# Profil
+# Profile
 
-Sert de référence pour juger si une offre correspond au poste recherché :
-langages, frameworks, séniorité, type de rôle. Sans ce fichier, les questions
-d'adéquation (`stackMatch`, `roleFit`) sont retirées de l'appel JEV — le reste
-de la veille fonctionne à l'identique.
+Reference used to judge whether an offer matches the job being sought:
+languages, frameworks, seniority, kind of role. Without this file, the fit
+questions (`stackMatch`, `roleFit`) are removed from the JEV call — the rest of
+the watch works identically.
 
-**Tout ce dossier est ignoré par Git sauf ce README et `extract.mjs`.** Un CV
-contient un nom, un téléphone, une adresse et un parcours : il n'a rien à faire
-dans un dépôt.
+**This whole folder is ignored by Git except this README and `extract.mjs`.**
+A CV holds a name, a phone number, an address and a career history: it has no
+place in a repository.
 
-## Mise en place
+## Setup
 
-Déposer le CV en PDF ici, puis :
+Drop the CV as a PDF here, then:
 
 ```bash
 node profile/extract.mjs
 ```
 
-Deux fichiers sont produits :
+Two files are produced:
 
-| Fichier | Contenu | Quitte la machine ? |
+| File | Content | Leaves the machine? |
 |---|---|---|
-| `profile.cache.md` | texte intégral extrait du PDF | **non**, jamais |
-| `profile.jev.md` | digest expurgé, tronqué | oui, c'est le seul envoyé au modèle |
+| `profile.cache.md` | full text extracted from the PDF | **no**, never |
+| `profile.jev.md` | redacted, truncated digest | yes, it is the only one sent to the model |
 
-L'extraction ne recommence que si le PDF a changé (empreinte dans l'en-tête du
-cache). `--force` pour refaire le travail, `--show` pour lire le digest exact
-qui partirait.
+Extraction only reruns when the PDF changed (fingerprint in the cache header).
+`--force` redoes the work, `--show` prints the exact digest that would be sent.
 
-Un profil rédigé à la main dans `profile.md` est prioritaire sur le PDF. C'est la
-solution la plus simple si `pdftotext` n'est pas installé, ou si le CV extrait
-sort mal découpé.
+A hand-written profile in `profile.md` takes precedence over the PDF. It is the
+simplest option when `pdftotext` is not installed, or when the extracted CV
+comes out badly split.
 
-## Ce qui est retiré du digest
+## What is removed from the digest
 
-Adresses e-mail, numéros de téléphone, URL, code postal et ville, adresses
-postales. Les compétences, technologies, intitulés de poste et durées sont
-conservés : ce sont eux qui répondent aux questions.
+Email addresses, phone numbers, URLs, postal code and city, postal addresses.
+Skills, technologies, job titles and durations are kept: they are what answers
+the questions.
 
-Pour retirer d'autres littéraux — nom, ancien employeur sous NDA — créer
-`redact.local.txt`, un terme par ligne, casse ignorée :
+To remove other literals — name, former employer under NDA — create
+`redact.local.txt`, one term per line, case-insensitive:
 
 ```text
-# une ligne par terme à retirer
-PRENOM NOM
-Ancien Employeur
+# one line per term to remove
+FIRSTNAME LASTNAME
+Former Employer
 ```
 
-Vérifier avant d'activer JEV :
+Check before enabling JEV:
 
 ```bash
 node profile/extract.mjs --show
 ```
 
-## Dépendance
+## Dependency
 
-`pdftotext` (poppler), fourni par Git for Windows, Homebrew et la plupart des
-distributions. Le projet n'ajoute aucune dépendance npm pour cette conversion ;
-à défaut de `pdftotext`, écrire `profile.md` à la main.
+`pdftotext` (poppler), shipped with Git for Windows, Homebrew and most
+distributions. The project adds no npm dependency for this conversion; without
+`pdftotext`, write `profile.md` by hand.

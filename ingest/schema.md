@@ -1,17 +1,18 @@
-# Contrat de sortie d'un run
+# Run output contract
 
-Chaque collecteur écrit **un fichier JSON par run** dans `data/runs-inbox/`.
-`ingest.mjs` le consomme puis le déplace dans `data/runs-archive/`.
+Each collector writes **one JSON file per run** in `data/runs-inbox/`.
+Ingestion (`node ingest/ingest.mjs`, `jobmailboard ingest` or the `ingest_runs`
+MCP tool) consumes it, then moves it to `data/runs-archive/`.
 
 ```text
-run-<YYYYMMDD-HHmm>.json                      source unique (historique)
-run-<YYYYMMDD-HHmm>--<sourceId>.json          multicanal
+run-<YYYYMMDD-HHmm>.json                      single source (legacy)
+run-<YYYYMMDD-HHmm>--<sourceId>.json          multi-channel
 ```
 
-Le nom du fichier est le `runId`. Deux collecteurs qui tournent sur la même
-fenêtre écrivent donc deux fichiers, chacun avec sa propre couverture.
+The file name is the `runId`. Two collectors running over the same window
+therefore write two files, each with its own coverage.
 
-## Version 2 — multicanal
+## Version 2 — multi-channel
 
 ```json
 {
@@ -46,49 +47,49 @@ fenêtre écrivent donc deux fichiers, chacun avec sa propre couverture.
       "identityQuality": "provider-id",
       "category": "emploi",
       "date": "2026-09-22T16:42:00.000Z",
-      "from": "Recrutement ACME <user-07@example.test>",
-      "subject": "Votre candidature - Développeur front",
-      "summary": "Convocation à un entretien visio le 25/09 à 14h.",
-      "body": "Bonjour,\n\nSuite à votre candidature…",
+      "from": "ACME Recruiting <user-07@example.test>",
+      "subject": "Your application - Front-end developer",
+      "summary": "Video interview invitation on 25/09 at 2 pm.",
+      "body": "Hello,\n\nFollowing your application…",
       "link": "https://mail.proton.me/u/0/inbox/…"
     }
   ]
 }
 ```
 
-## Règles
+## Rules
 
-- **Clé de déduplication : `sourceId` + `id`.** Un identifiant externe n'est
-  unique que dans son canal ; deux boîtes différentes peuvent exposer le même.
-  L'ingestion calcule `key = "<sourceId>:<id>"`.
-- `source` absent → le run est traité comme `gmail-legacy`, ce qui préserve
-  l'identité des messages ingérés avant le multicanal.
-- `category` doit être l'`id` d'un critère de `config/criteria.json`. Une
-  catégorie inconnue passe par les `aliases`, puis retombe sur `autre` — elle
-  n'est jamais perdue.
-- `identityQuality` ∈ `provider-id` | `conversation-id` | `fingerprint`. Un
-  numéro d'élément DOM ou une position dans une liste n'est jamais un `id`.
+- **Deduplication key: `sourceId` + `id`.** An external id is only unique
+  within its channel; two different mailboxes may expose the same one.
+  Ingestion computes `key = "<sourceId>:<id>"`.
+- Missing `source` → the run is treated as `gmail-legacy`, which preserves the
+  identity of messages ingested before multi-channel support.
+- `category` must be the `id` of a criterion in `config/criteria.json`. An
+  unknown category goes through `aliases`, then falls back to `autre` — it is
+  never lost.
+- `identityQuality` ∈ `provider-id` | `conversation-id` | `fingerprint`. A DOM
+  element number or a position in a list is never an `id`.
 - `collector.status` ∈ `ok` | `partial` | `needs_user` | `wrong_account` |
-  `unavailable` | `error`. Un run en échec garde `messages: []` et documente
-  quand même sa couverture.
-- `summary` : 1 à 2 phrases factuelles, pas d'interprétation.
-- `body` : texte brut de préférence, HTML accepté (converti à l'ingestion).
-  Stocké dans `data/bodies.jsonl`, **pas** dans `messages.jsonl`, tronqué à
-  12 000 caractères. Sans lui, seuls objet, expéditeur et résumé sont cherchables.
-- Un `body` peut arriver dans un run ultérieur ; un corps déjà stocké n'est
-  jamais écrasé.
-- `messages: []` est valide — un run vide prouve que la veille a tourné, et le
-  dashboard affiche les trous de couverture.
-- Optionnels : `threadId`, `link`, `summary`, `body`, `queries`, `coverage`,
+  `unavailable` | `error`. A failed run keeps `messages: []` and still
+  documents its coverage.
+- `summary`: 1 to 2 factual sentences, no interpretation.
+- `body`: plain text preferred, HTML accepted (converted at ingestion). Stored
+  in `data/bodies.jsonl`, **not** in `messages.jsonl`, truncated to 12,000
+  characters. Without it, only subject, sender and summary are searchable.
+- A `body` may arrive in a later run; a body already stored is never
+  overwritten.
+- `messages: []` is valid — an empty run proves the watch ran, and the
+  dashboard shows coverage gaps.
+- Optional: `threadId`, `link`, `summary`, `body`, `queries`, `coverage`,
   `collector`, `jev`.
 
-## Run de rattrapage des corps
+## Body backfill run
 
-Un run v2 avec `"kind": "backfill"` n'apporte que des corps pour des messages
-**déjà connus** du même canal. Il ne crée aucun message, ne touche ni
-`seenCount` ni `lastSeenAt`, n'entre pas dans `runs.jsonl` (ce n'est pas une
-observation de la boîte) et il est archivé comme les autres. Un `id` inconnu est
-ignoré avec un avertissement.
+A v2 run with `"kind": "backfill"` only brings bodies for messages **already
+known** on the same channel. It creates no message, touches neither `seenCount`
+nor `lastSeenAt`, does not enter `runs.jsonl` (it is not an observation of the
+mailbox) and is archived like the others. An unknown `id` is skipped with a
+warning.
 
 ```json
 {
@@ -97,19 +98,19 @@ ignoré avec un avertissement.
   "runAt": "2026-09-22T19:00:00.000Z",
   "source": { "sourceId": "gmail-primary", "channelKind": "mailbox", "accessMode": "connector", "provider": "gmail" },
   "collector": { "name": "scheduled-task", "status": "ok" },
-  "messages": [{ "id": "provider-message-id", "body": "Bonjour,\n\n…" }]
+  "messages": [{ "id": "provider-message-id", "body": "Hello,\n\n…" }]
 }
 ```
 
-Nom conseillé : `backfill-<YYYYMMDD-HHmm>--<sourceId>.json`. Les messages à
-rattraper se listent avec
-`node ingest/missing-bodies.mjs --source <sourceId> --limit 20` (du plus récent
-au plus ancien).
+Suggested name: `backfill-<YYYYMMDD-HHmm>--<sourceId>.json`. Messages to
+backfill are listed with
+`node ingest/missing-bodies.mjs --source <sourceId> --limit 20` (or
+`jobmailboard missing-bodies`), newest first.
 
-## Version 1 — toujours acceptée
+## Version 1 — still accepted
 
-Un run sans `schemaVersion` ni `source` reste valide : c'est le format Gmail
-d'origine, rattaché au canal `gmail-legacy`.
+A run with neither `schemaVersion` nor `source` stays valid: it is the original
+Gmail format, attached to the `gmail-legacy` channel.
 
 ```json
 {
@@ -120,22 +121,22 @@ d'origine, rattaché au canal `gmail-legacy`.
 }
 ```
 
-## Champs ajoutés par l'ingestion
+## Fields added by ingestion
 
-| Champ | Sens |
+| Field | Meaning |
 |---|---|
-| `key` | `<sourceId>:<id>` — identité canonique, clé de déduplication |
-| `sourceId` | canal d'origine (`gmail-legacy` par défaut) |
-| `provider` | fournisseur déclaré par le run |
-| `firstSeenAt` | horodatage du run qui a découvert le message |
-| `lastSeenAt` | horodatage du dernier run où il est réapparu |
-| `seenCount` | nombre de runs l'ayant retourné |
-| `runId` | run de découverte |
-| `hasBody` | un corps est stocké pour ce message |
+| `key` | `<sourceId>:<id>` — canonical identity, deduplication key |
+| `sourceId` | originating channel (`gmail-legacy` by default) |
+| `provider` | provider declared by the run |
+| `firstSeenAt` | timestamp of the run that discovered the message |
+| `lastSeenAt` | timestamp of the last run where it reappeared |
+| `seenCount` | number of runs that returned it |
+| `runId` | discovery run |
+| `hasBody` | a body is stored for this message |
 
-## Bloc `jev` (facultatif)
+## `jev` block (optional)
 
-Un message peut porter un objet `jev` produit par l'enrichissement décrit dans
-[JEV_INTEGRATION.md](../JEV_INTEGRATION.md) : `status`, `questionSet`, `model`,
-`evaluatedAt`, `inputFingerprint`, `answers`. Il est recopié tel quel et
-n'influence ni la déduplication ni la conservation d'un message.
+A message may carry a `jev` object produced by the enrichment described in
+[JEV_INTEGRATION.md](../JEV_INTEGRATION.md): `status`, `questionSet`, `model`,
+`evaluatedAt`, `inputFingerprint`, `answers`. It is copied as-is and affects
+neither deduplication nor retention of a message.

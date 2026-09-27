@@ -1,82 +1,82 @@
-# jobmailboard — veille emploi
+# jobmailboard — job-mail watch
 
-Suivi local des mails emploi repérés par la tâche planifiée « Veille emploi ».
-Pas de serveur, pas de dépendances : du JSONL sur disque + un dashboard statique.
+Local tracking of job-related mail spotted by the "Veille emploi" scheduled task.
+The source repository needs no server: JSONL on disk plus a static dashboard.
+The npm package (`@medyll/jobmailboard`) wraps the same logic in a CLI, an API
+and an MCP server — see [README.md](README.md).
 
-## Rôle de l'agent pendant un run
+## Agent role during a run
 
-1. Lancer une recherche Gmail **par critère activé** dans
-   [config/criteria.json](config/criteria.json), sur la fenêtre qui y est définie
-   (12 h par défaut). Ne jamais réécrire les requêtes ici : elles vivent dans ce
-   fichier, avec `{windowHours}` substitué à l'exécution.
-2. Pour chaque mail retenu, récupérer le **corps** (`get_message`) et le mettre dans
-   `body`. Sans lui, le mail n'est pas lisible ni cherchable dans le dashboard.
-3. Écrire **un seul fichier** par canal dans `data/runs-inbox/`, respectant
-   [ingest/schema.md](ingest/schema.md). Écrire le fichier même si aucun mail n'est
-   trouvé (`"messages": []`) — un run vide documente la couverture. La `category`
-   de chaque message doit être l'`id` d'un critère de `config/criteria.json`.
-3 bis. Rattraper jusqu'à 20 corps manquants par passage : lister avec
-   `node ingest/missing-bodies.mjs --source gmail-primary --limit 20`, récupérer
-   chaque corps, déposer un run `kind: "backfill"` (voir
+1. Run one Gmail search **per enabled criterion** in
+   [config/criteria.json](config/criteria.json), over the window defined there
+   (12 h by default). Never rewrite the queries here: they live in that file,
+   with `{windowHours}` substituted at run time.
+2. For each kept mail, fetch the **body** (`get_message`) and put it in `body`.
+   Without it, the mail is neither readable nor searchable in the dashboard.
+3. Write **one single file** per channel in `data/runs-inbox/`, following
+   [ingest/schema.md](ingest/schema.md). Write the file even when no mail is
+   found (`"messages": []`) — an empty run documents coverage. Each message's
+   `category` must be the `id` of a criterion in `config/criteria.json`.
+3b. Backfill up to 20 missing bodies per pass: list them with
+   `node ingest/missing-bodies.mjs --source gmail-primary --limit 20`, fetch
+   each body, drop a `kind: "backfill"` run (see
    [ingest/schema.md](ingest/schema.md)).
-4. Lancer ensuite `node orchestrator/run-cycle.mjs`. Il collecte les canaux
-   browser, ingère une seule fois et écrit en dernière ligne un objet
-   `mailboard.cycle.result`.
-5. Lire cet objet. Notifier **seulement** si `notify` vaut `true`, avec le texte
-   de `message`. Les doublons ne déclenchent rien : la déduplication par id est
-   la source de vérité, pas la fenêtre temporelle.
+4. Then run `node orchestrator/run-cycle.mjs`. It collects the browser
+   channels, ingests once and writes a `mailboard.cycle.result` object as its
+   last line.
+5. Read that object. Notify **only** when `notify` is `true`, using the text in
+   `message`. Duplicates trigger nothing: id-based deduplication is the source
+   of truth, not the time window.
 
-## Cycle d'orchestration
+## Orchestration cycle
 
-[orchestrator/run-cycle.mjs](orchestrator/run-cycle.mjs) porte ce cycle ; aucun
-collecteur n'appelle l'ingesteur. Détails dans
+[orchestrator/run-cycle.mjs](orchestrator/run-cycle.mjs) owns this cycle; no
+collector calls the ingester. Details in
 [orchestrator/README.md](orchestrator/README.md).
 
-1. **Préparer** : charger les canaux activés et fixer une fenêtre commune.
-2. **Collecter** : lancer chaque canal séparément. Les canaux qui partagent un
-   profil Edge passent en série avec
-   `pwsh -File collectors/browser-mail/run.ps1 --source <sourceId>` ; les autres
-   peuvent tourner en parallèle.
-3. **Constater** : attendre la fin de chaque tentative. Un canal en échec écrit
-   quand même son run v2 avec `messages: []` et un `collector.status` explicite ;
-   s'il n'a rien pu écrire (Edge absent, port CDP muet, délai dépassé),
-   l'orchestrateur écrit ce run à sa place. Le cycle continue avec les autres
-   canaux.
-4. **Ingérer** : lancer une seule commande `node ingest/ingest.mjs --json` après
-   toutes les tentatives.
-5. **Notifier** : prendre la décision depuis l'objet
-   `mailboard.ingest.result`, jamais depuis le nombre de résultats collectés.
-   L'orchestrateur la reporte dans `mailboard.cycle.result.notify`.
+1. **Prepare**: load enabled channels and set a common window.
+2. **Collect**: run each channel separately. Browser channels run in series
+   (they share one Edge profile) through the Node collector
+   `collectors/browser-mail/collect.mjs --source <sourceId>`; on Windows,
+   `MAILBOARD_PWSH=pwsh` routes them through
+   `pwsh -File collectors/browser-mail/run.ps1 --source <sourceId>`, which starts
+   and stops the dedicated Edge instance.
+3. **Check**: wait for each attempt to finish. A failing channel still writes
+   its v2 run with `messages: []` and an explicit `collector.status`; if it could
+   not write anything (Edge missing, silent CDP port, timeout), the orchestrator
+   writes that run in its place. The cycle goes on with the other channels.
+4. **Ingest**: run a single `node ingest/ingest.mjs --json` after all attempts.
+5. **Notify**: decide from the `mailboard.ingest.result` object, never from the
+   number of collected results. The orchestrator reports the decision in
+   `mailboard.cycle.result.notify`.
 
-`node orchestrator/run-cycle.mjs --retry-failed` relance seulement les canaux
-browser en échec au cycle précédent (`data/cycle-state.json`).
+`node orchestrator/run-cycle.mjs --retry-failed` reruns only the browser
+channels that failed in the previous cycle (`data/cycle-state.json`).
 
-Si le cycle s'arrête avant l'ingestion, les runs restent dans
-`data/runs-inbox/` et le prochain cycle les reprend. Si l'ingestion s'arrête
-avant l'archivage, elle conserve également les fichiers dans l'inbox. Un
-`runId` déjà présent dans `data/runs.jsonl` sera seulement archivé au passage
-suivant, sans créer de second run canonique.
+If the cycle stops before ingestion, runs stay in `data/runs-inbox/` and the
+next cycle picks them up. If ingestion stops before archiving, it also keeps the
+files in the inbox. A `runId` already present in `data/runs.jsonl` is only
+archived on the next pass, without creating a second canonical run.
 
 ## Invariants
 
-- La déduplication se fait sur `sourceId` + `id` externe (`key`), jamais sur
-  l'objet ou l'expéditeur. Un run sans `source` est rattaché à `gmail-legacy`.
-- `config/criteria.json` dit ce qu'on cherche, `config/preferences.json` ce qu'on
-  veut. Une préférence rédhibitoire signale un message, elle ne le supprime
-  jamais : la décision reste à l'humain.
-- Les critères de tri, les canaux et les questions JEV vivent dans `config/`.
-  Ajouter un critère = éditer `config/criteria.json` puis `--rebuild` ; aucun code
-  à toucher, ni dans l'ingesteur ni dans le dashboard.
-- Le CV de `profile/` ne quitte jamais la machine : seul `profile/profile.jev.md`,
-  expurgé, est transmis à un modèle.
-- `data/messages.jsonl` est append-only en pratique ; il n'est réécrit en entier que
-  pour mettre à jour `lastSeenAt` / `seenCount` / `hasBody`, ou les blocs `jev`
-  via `node ingest/jev-backfill.mjs`. Ne jamais l'éditer à la main.
-- `dashboard/data.js` et `dashboard/bodies.js` sont **générés**. Toute modification
-  manuelle sera écrasée au run suivant.
-- Les corps sont stockés dans `data/bodies.jsonl`, séparés de l'index : `messages.jsonl`
-  reste léger et lisible même avec un an d'historique. Un corps déjà stocké n'est jamais
-  écrasé par un run ultérieur.
-- L'état « traité » vit dans le localStorage du navigateur, pas dans `data/`. Il ne
-  survit pas à un changement de navigateur — c'est assumé, ça évite d'avoir à écrire
-  depuis la page.
+- Deduplication uses `sourceId` + external `id` (`key`), never subject or
+  sender. A run without `source` is attached to `gmail-legacy`.
+- `config/criteria.json` says what we look for, `config/preferences.json` what
+  we want. A blocker preference flags a message, it never deletes it: the
+  decision stays human.
+- Sorting criteria, channels and JEV questions live in `config/`. Adding a
+  criterion = edit `config/criteria.json` then `--rebuild`; no code to touch,
+  neither in the ingester nor in the dashboard.
+- The CV in `profile/` never leaves the machine: only the redacted
+  `profile/profile.jev.md` is sent to a model.
+- `data/messages.jsonl` is append-only in practice; it is rewritten in full only
+  to update `lastSeenAt` / `seenCount` / `hasBody`, or the `jev` blocks via
+  `node ingest/jev-backfill.mjs`. Never edit it by hand.
+- `dashboard/data.js` and `dashboard/bodies.js` are **generated**. Any manual
+  change is overwritten on the next run.
+- Bodies are stored in `data/bodies.jsonl`, apart from the index:
+  `messages.jsonl` stays light and readable even with a year of history. A body
+  already stored is never overwritten by a later run.
+- The "processed" state lives in the browser's localStorage, not in `data/`. It
+  does not survive a browser change — accepted, it avoids writing from the page.

@@ -1,64 +1,68 @@
 # Configuration
 
-Tout ce qui change d'une machine, d'un compte ou d'une recherche d'emploi à
-l'autre vit ici. Aucun code n'est à modifier pour ajouter un critère de tri, une
-boîte mail ou un fournisseur.
+Everything that changes from one machine, account or job search to another
+lives here. No code has to change to add a sorting criterion, a mailbox or a
+provider.
 
-| Fichier | Versionné | Rôle |
+| File | Versioned | Role |
 |---|---|---|
-| `criteria.json` | oui | **critères de tri** : ce qu'on cherche, comment ça s'appelle, de quelle couleur c'est |
-| `preferences.json` | oui | **pro / cons** : ce qu'on veut, ce qu'on refuse |
-| `channels.example.json` | oui | modèle de registre de canaux, sans donnée personnelle |
-| `channels.local.json` | **non** | canaux réellement activés sur cette machine |
-| `jev.json` | oui | jeu de questions JEV, seuils, modèle |
-| `load.mjs` | oui | chargeur unique — l'ingesteur et les collecteurs passent par lui |
+| `criteria.json` | yes | **sorting criteria**: what we look for, what it is called, which color it gets |
+| `preferences.json` | yes | **pros / cons**: what we want, what we refuse |
+| `channels.example.json` | yes | channel registry template, without personal data |
+| `channels.local.json` | **no** | channels actually enabled on this machine |
+| `jev.json` | yes | JEV question set, thresholds, model |
+| `load.mjs` | yes | single loader — the ingester and the collectors go through it |
 
-L'adaptateur qui parle à TypeSafe est [`ingest/jev.mjs`](../ingest/jev.mjs) : il
-traduit le vocabulaire de `jev.json` (primitive, texte, options, niveaux) vers
-`POST /v1/systemone`. Changer de fournisseur ne devrait toucher que ce fichier.
+In an npm workspace (`jobmailboard init`), the same files live in
+`<workspace>/config/`, seeded with generic defaults.
 
-## Ajouter ou modifier un critère de tri
+The adapter that talks to TypeSafe is [`ingest/jev.mjs`](../ingest/jev.mjs): it
+translates the `jev.json` vocabulary (primitive, text, options, levels) into
+`POST /v1/systemone`. Switching provider should only touch that file.
 
-Éditer `criteria.json`, puis `node ingest/ingest.mjs --rebuild`. Le dashboard
-reprend libellé, couleur et filtre sans retouche de code ni de CSS.
+## Adding or changing a sorting criterion
+
+Edit `criteria.json`, then `node ingest/ingest.mjs --rebuild` (or
+`jobmailboard rebuild`). The dashboard picks up label, color and filter with no
+code or CSS change.
 
 ```json
 {
-  "id": "veille-tech",
-  "label": "Veille technique",
+  "id": "tech-watch",
+  "label": "Tech watch",
   "enabled": true,
   "color": { "light": "#7048e8", "dark": "#b197fc" },
   "profileMatch": false,
   "queries": {
-    "gmail": "newer_than:{windowHours}h (newsletter OR conférence)",
-    "keywords": ["newsletter", "conférence"]
+    "gmail": "newer_than:{windowHours}h (newsletter OR conference)",
+    "keywords": ["newsletter", "conference"]
   }
 }
 ```
 
-- `{windowHours}` est substitué à l'exécution : la fenêtre se règle à un seul endroit.
-- `queries.<provider>` : une requête par fournisseur, dans **sa** syntaxe. Un
-  fournisseur sans entrée est simplement ignoré pour ce critère.
-- `queries.keywords` sert aux collecteurs qui n'ont pas de moteur de recherche
-  (extraction depuis une liste).
-- `profileMatch: true` active les questions d'adéquation au CV pour ce critère.
-- `enabled: false` retire le critère sans perdre sa formulation.
+- `{windowHours}` is substituted at run time: the window is set in one place.
+- `queries.<provider>`: one query per provider, in **its** syntax. A provider
+  with no entry is simply skipped for that criterion.
+- `queries.keywords` serves collectors that have no search engine (extraction
+  from a list).
+- `profileMatch: true` enables the CV-fit questions for this criterion.
+- `enabled: false` removes the criterion without losing its wording.
 
-**Renommer plutôt que casser.** Un critère supprimé laisse des messages déjà
-classés sous l'ancien nom. Ajouter une entrée dans `aliases` les rattache au
-critère actuel, sans réécrire `data/messages.jsonl` :
+**Rename rather than break.** A deleted criterion leaves messages already
+classified under the old name. An entry in `aliases` maps them to the current
+criterion without rewriting `data/messages.jsonl`:
 
 ```json
 "aliases": { "candidatures": "emploi", "recruteurs": "emploi" }
 ```
 
-## Ajouter un pro ou un con
+## Adding a pro or a con
 
-`criteria.json` dit **ce qu'on cherche**. Le CV dit **ce qu'on sait faire**.
-`preferences.json` dit **ce qu'on veut** — et c'est une autre question : un
-langage peut figurer au parcours sans qu'on souhaite y revenir.
+`criteria.json` says **what we look for**. The CV says **what we can do**.
+`preferences.json` says **what we want** — a different question: a language
+can appear in the career history without us wanting to go back to it.
 
-Une entrée suffit, puis `node ingest/ingest.mjs --rebuild` :
+One entry is enough, then `node ingest/ingest.mjs --rebuild`:
 
 ```json
 {
@@ -70,79 +74,81 @@ Une entrée suffit, puis `node ingest/ingest.mjs --rebuild` :
 }
 ```
 
-- `kind` : `pro` attire, `con` repousse.
-- `strength` : `blocker` (4 points), `strong` (2), `mild` (1).
-- `blocker` **signale**, ne supprime pas. Le dashboard propose « masquer les
-  rédhibitoires » ; c'est une case que l'on coche, pas une décision prise à
-  votre place. Une préférence mal formulée ne doit pas faire disparaître une
-  offre en silence.
-- Le calcul est local et déterministe : aucun appel, aucun coût. Les mots-clés
-  sont comparés en minuscules à l'expéditeur, l'objet et le résumé.
+- `kind`: `pro` attracts, `con` repels.
+- `strength`: `blocker` (4 points), `strong` (2), `mild` (1).
+- `blocker` **flags**, it does not delete. The dashboard offers "hide
+  blockers"; it is a box you tick, not a decision made for you. A badly worded
+  preference must not make an offer silently disappear.
+- Scoring is local and deterministic: no call, no cost. Keywords are compared
+  in lower case against sender, subject and summary.
 
-Les préférences sont réévaluées **à chaque `--rebuild`**, sur tout l'historique.
-Éditer le fichier suffit donc à reclasser un an de messages, sans réécrire une
-ligne de `data/`.
+Preferences are re-evaluated **on every `--rebuild`**, over the whole history.
+Editing the file is enough to reclassify a year of messages, without rewriting
+a line of `data/`.
 
-Elles accompagnent aussi l'appel JEV métier, sous forme de deux listes de
-libellés (`wants`, `avoids`). Sans elles, `roleFit` noterait au plus haut une
-offre Java, puisque le parcours en contient.
+They also go with the business JEV call, as two lists of labels (`wants`,
+`avoids`). Without them, `roleFit` would rate a Java offer at the top, since the
+career history contains Java.
 
-Un script, une skill ou un serveur MCP peut écrire dans ce fichier : c'est du
-JSON plat, sans dépendance, et la seule contrainte est de garder les `id`
-uniques.
+A script, a skill or an MCP server can write this file: it is flat JSON, with no
+dependency, and the only constraint is to keep `id`s unique.
 
-## Déclarer un canal
+## Declaring a channel
 
-Copier `channels.example.json` en `channels.local.json` et adapter. Trois axes
-indépendants décrivent une source :
+Copy `channels.example.json` to `channels.local.json` and adapt it. Three
+independent axes describe a source:
 
 - `channelKind` — `mailbox`, `feed`, `messaging`, `file`
 - `accessMode` — `connector`, `api`, `browser`, `drop`
 - `provider` — `gmail`, `proton`, `outlook`, `rss`…
 
-Ils sont orthogonaux : `gmail` + `connector` et `gmail` + `browser` sont deux
-canaux valides du même fournisseur. Chaque canal porte un `sourceId` stable, qui
-sert de préfixe à la clé de déduplication — deux boîtes différentes qui exposent
-le même identifiant externe ne se confondent jamais.
+They are orthogonal: `gmail` + `connector` and `gmail` + `browser` are two valid
+channels for the same provider. Each channel carries a stable `sourceId`, used
+as the prefix of the deduplication key — two different mailboxes exposing the
+same external id are never confused.
 
-`linkTemplate` (facultatif) reconstruit le lien d'un message quand le collecteur
-n'en fournit pas : `"https://mail.proton.me/u/0/inbox/{id}"`.
+`linkTemplate` (optional) rebuilds a message link when the collector provides
+none: `"https://mail.proton.me/u/0/inbox/{id}"`.
 
-## Variables d'environnement
+## Environment variables
 
-Aucun secret ne figure dans les fichiers de configuration. Une valeur de la forme
-`"env:NOM"` y est remplacée au chargement par `process.env.NOM`.
+No secret is stored in configuration files. A value of the form `"env:NAME"` is
+replaced at load time by `process.env.NAME`.
 
-| Variable | Défaut | Rôle |
+| Variable | Default | Role |
 |---|---|---|
-| `TYPESAFE_API_KEY` | — | clé JEV. Absente = `jev.status: skipped`, l'ingestion continue |
-| `MAILBOARD_JEV` | valeur de `jev.json` | `1` active l'enrichissement, `0` le coupe |
-| `MAILBOARD_JEV_MODEL` | `jev.json` | épingler une version de modèle |
-| `MAILBOARD_JEV_TIMEOUT_MS` | `8000` | délai d'un appel |
-| `MAILBOARD_JEV_CONCURRENCY` | `4` | appels simultanés |
-| `MAILBOARD_JEV_CONFIG` | `config/jev.json` | autre jeu de questions |
-| `MAILBOARD_JEV_ENDPOINT` | `jev.json` | autre URL System One (bouchon local, passerelle) |
-| `MAILBOARD_CONFIG_DIR` | `config/` | déplacer tout le dossier de configuration |
-| `MAILBOARD_CRITERIA` | `config/criteria.json` | autre fichier de critères |
-| `MAILBOARD_PREFERENCES` | `config/preferences.json` | autre jeu de préférences |
-| `MAILBOARD_CHANNELS` | `config/channels.local.json` | autre registre de canaux |
-| `MAILBOARD_PROFILE` | `profile/profile.jev.md` | autre digest de profil |
-| `MAILBOARD_PROFILE_SOURCE` | premier PDF de `profile/` | CV source à extraire |
-| `MAILBOARD_PROFILE_MAX_CHARS` | `4000` | taille du digest envoyé |
-| `MAILBOARD_WINDOW_HOURS` | `criteria.json` | fenêtre de collecte d'un run |
+| `TYPESAFE_API_KEY` | — | JEV key. Missing = `jev.status: skipped`, ingestion goes on |
+| `MAILBOARD_JEV` | value from `jev.json` | `1` enables enrichment, `0` disables it |
+| `MAILBOARD_JEV_MODEL` | `jev.json` | pin a model version |
+| `MAILBOARD_JEV_TIMEOUT_MS` | `8000` | timeout of one call |
+| `MAILBOARD_JEV_CONCURRENCY` | `4` | concurrent calls |
+| `MAILBOARD_JEV_CONFIG` | `config/jev.json` | other question set |
+| `MAILBOARD_JEV_ENDPOINT` | `jev.json` | other System One URL (local stub, gateway) |
+| `MAILBOARD_ROOT` | user workspace | data root |
+| `MAILBOARD_CONFIG_DIR` | `config/` | move the whole configuration folder |
+| `MAILBOARD_CRITERIA` | `config/criteria.json` | other criteria file |
+| `MAILBOARD_PREFERENCES` | `config/preferences.json` | other preference set |
+| `MAILBOARD_CHANNELS` | `config/channels.local.json` | other channel registry |
+| `MAILBOARD_PROFILE` | `profile/profile.jev.md` | other profile digest |
+| `MAILBOARD_PROFILE_SOURCE` | first PDF in `profile/` | source CV to extract |
+| `MAILBOARD_PROFILE_MAX_CHARS` | `4000` | size of the digest sent |
+| `MAILBOARD_WINDOW_HOURS` | `criteria.json` | collection window of a run |
+| `MAILBOARD_CDP_PORT` | `browser.port` of the channel | CDP port of the browser collector |
+| `MAILBOARD_PWSH` | unset | Windows: route browser channels through `run.ps1` |
+| `MAILBOARD_CHANNEL_TIMEOUT_MS` | `300000` | max duration per browser channel |
 
-Le préfixe reste `MAILBOARD_` : c'est le nom du runtime (`window.MAILBOARD` dans
-le dashboard). `jobmailboard` est le nom du dépôt.
+The prefix stays `MAILBOARD_`: it is the runtime name (`window.MAILBOARD` in
+the dashboard). `jobmailboard` is the package name.
 
-## Précédence
+## Precedence
 
-Pour l'activation de JEV, le plus explicite gagne :
+For JEV activation, the most explicit wins:
 
 ```text
---dry            coupe tout, sans condition, y compris avec --jev
---jev            active pour cette exécution
-MAILBOARD_JEV    active ou coupe pour l'environnement
-jev.json         valeur par défaut du dépôt
+--dry            disables everything, unconditionally, even with --jev
+--jev            enables for this run
+MAILBOARD_JEV    enables or disables for the environment
+jev.json         repository default
 ```
 
-Une clé absente ramène le statut à `skipped:no-key` : jamais une erreur de run.
+A missing key brings the status back to `skipped:no-key`: never a run error.

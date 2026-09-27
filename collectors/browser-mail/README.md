@@ -1,116 +1,122 @@
-# Collecteur navigateur
+# Browser collector
 
-Lit une boîte mail dans un navigateur **déjà authentifié**, et écrit un run dans
-`data/runs-inbox/`. Rien d'autre. L'ingestion reste le seul endroit qui décide
-de ce qui fait foi dans `data/` — c'est ce qui rend ce collecteur remplaçable.
+Reads a mailbox in an **already authenticated** browser and writes a run to
+`data/runs-inbox/`. Nothing else. Ingestion remains the only place that decides
+what is authoritative in `data/` — which is what makes this collector
+replaceable.
 
-Premier fournisseur : Proton (`providers/proton.mjs`). Le même squelette vaut
-pour Gmail lu par navigateur : un canal `provider: "gmail"`, `accessMode:
-"browser"`, et un `providers/gmail.mjs` à écrire.
+First provider: Proton (`providers/proton.mjs`). The same skeleton works for
+Gmail read through a browser: a `provider: "gmail"`, `accessMode: "browser"`
+channel, and a `providers/gmail.mjs` to write.
 
 ```text
-Edge déjà ouvert, session valide
-        │  /json/version → « Edg/ » vérifié
+Edge already open, valid session
+        │  /json/version → "Edg/" checked
         ▼
-   edge.mjs           onglet créé, possédé, refermé
-        │  Runtime.evaluate, origines sur liste blanche
+   edge.mjs           tab created, owned, closed
+        │  Runtime.evaluate, allow-listed origins
         ▼
-providers/proton.mjs  compte vérifié, lignes extraites
+providers/proton.mjs  account checked, rows extracted
         │
         ▼
-   collect.mjs        run v2 dans data/runs-inbox/
+   collect.mjs        v2 run in data/runs-inbox/
         │
         ▼
    node ingest/ingest.mjs
 ```
 
-## Deux façons de naviguer
+From the npm package, the same collector runs with
+`jobmailboard collect --source <id>` (or `--check`).
 
-| Mode | Commande | Qui décide du chemin | Coût |
+## Two ways to navigate
+
+| Mode | Command | Who picks the path | Cost |
 |---|---|---|---|
-| **direct** (défaut) | `--nav direct` | le code : l'URL de la boîte est connue, le chemin est fixe | aucun appel |
-| **jev** | `--nav jev` | `jev-ultrafast` : JEV reçoit un but et la table des éléments, et choisit l'opération et la cible | un appel TypeSafe par action |
+| **direct** (default) | `--nav direct` | the code: the inbox URL is known, the path is fixed | no call |
+| **jev** | `--nav jev` | `jev-ultrafast`: JEV gets a goal and the element table, and picks the operation and target | one TypeSafe call per action |
 
-Les deux **partagent l'extraction**. Une fois la vue atteinte, ce sont les mêmes
-expressions de `providers/proton.mjs` qui lisent la page. Le modèle ne lit jamais
-la liste à notre place : il ouvre la porte, le code entre.
+Both **share extraction**. Once the view is reached, the same expressions from
+`providers/proton.mjs` read the page. The model never reads the list for us: it
+opens the door, the code walks in.
 
-Le mode direct reste le défaut parce qu'il ne coûte rien et ne fait sortir aucun
-texte de la machine. Le mode JEV existe pour ce que le code ne sait pas décrire à
-l'avance : un webmail inconnu, une vue derrière un parcours qui change, une
-interface qui vient d'être refondue.
+Direct mode stays the default because it costs nothing and sends no text off
+the machine. JEV mode exists for what code cannot describe in advance: an
+unknown webmail, a view behind a changing path, an interface that was just
+redesigned.
 
 ```bash
 node collectors/browser-mail/collect.mjs --source proton-perso --nav jev --observe
 ```
 
-Vérifié sur la vraie boîte : vue atteinte en 3 actions, compte confirmé, 50
-lignes lues par les sondes du fournisseur.
+Verified on the real mailbox: view reached in 3 actions, account confirmed, 50
+rows read by the provider probes.
 
-### Ce que le pilote JEV refuse
+### What the JEV driver refuses
 
-`jev_driver.py` est un processus Python séparé, parce que `jev-ultrafast` est un
-projet Python. Il porte ses propres gardes, codées et non confiées au prompt :
+`jev_driver.py` is a separate Python process, because `jev-ultrafast` is a
+Python project. It carries its own guards, coded rather than left to the
+prompt:
 
-- il s'attache à un navigateur déjà lancé (`BU_CDP_URL`), n'en ouvre jamais un ;
-- il vérifie l'origine de la page **après chaque action** et s'arrête à la
-  première sortie de périmètre ;
-- il refuse `TYPE_TEXT` : taper du texte demande un second modèle et personne ne
-  doit écrire dans une boîte mail sans décision explicite ;
-- il s'arrête au nombre d'actions configuré plutôt que de tourner en rond ;
-- il attend que la liste soit hydratée avant de lire, sinon la vue « atteinte »
-  rend des lignes sans date.
+- it attaches to an already running browser (`BU_CDP_URL`), never opens one;
+- it checks the page origin **after every action** and stops at the first exit
+  from scope;
+- it refuses `TYPE_TEXT`: typing text needs a second model, and nobody should
+  write into a mailbox without an explicit decision;
+- it stops at the configured number of actions instead of looping;
+- it waits for the list to be hydrated before reading, otherwise the "reached"
+  view returns rows without dates.
 
-La dépendance est épinglée à un commit testé dans `pyproject.toml`, pas à `main` :
-le projet est jeune et son contrat public peut bouger.
+The dependency is pinned to a tested commit in `pyproject.toml`, not to `main`:
+the project is young and its public contract may move.
 
 ```bash
 uv sync --project collectors/browser-mail
 ```
 
-`TYPESAFE_API_KEY` est nécessaire — sans elle, le pilote renvoie `needs_user` et
-le run reste vide plutôt que d'échouer. `TEXT_MODEL_API_KEY` ne sert qu'à
-`TYPE_TEXT`, donc à rien ici.
+`TYPESAFE_API_KEY` is required — without it, the driver returns `needs_user`
+and the run stays empty rather than failing. `TEXT_MODEL_API_KEY` is only used
+by `TYPE_TEXT`, so not at all here.
 
-La pagination, elle, reste déterministe dans les deux modes : tourner douze pages
-à coups de décisions de modèle coûterait douze appels pour un geste qu'on sait
-décrire en une ligne.
+Pagination stays deterministic in both modes: turning twelve pages through
+model decisions would cost twelve calls for a gesture we can describe in one
+line.
 
-## Activer le débogage distant
+## Enabling remote debugging
 
-Sous Windows, passer par le wrapper du collecteur :
+On Windows, go through the collector wrapper:
 
 ```powershell
 pwsh -File collectors/browser-mail/run.ps1 --check
 pwsh -File collectors/browser-mail/run.ps1 --source proton-perso --observe
 ```
 
-Le wrapper recharge `TYPESAFE_API_KEY` depuis l'environnement utilisateur si
-le processus courant ne l'a pas reçue. Il lance une instance Edge dédiée sur le
-port CDP configuré, attend qu'elle réponde, exécute le collecteur puis ferme
-cette instance.
+The wrapper reloads `TYPESAFE_API_KEY` from the user environment when the
+current process did not receive it. It starts a dedicated Edge instance on the
+configured CDP port, waits for it to answer, runs the collector, then closes
+that instance. The orchestrator uses this wrapper only when `MAILBOARD_PWSH` is
+set (e.g. `MAILBOARD_PWSH=pwsh`).
 
-Au premier lancement, garder Edge ouvert pour se connecter une fois à Proton :
+On first start, keep Edge open to sign in to Proton once:
 
 ```powershell
 pwsh -File collectors/browser-mail/run.ps1 --keep-edge-open --source proton-perso --observe
 ```
 
-Les lancements suivants réutilisent la session conservée dans
+Later starts reuse the session kept in
 `%LOCALAPPDATA%\Microsoft\Edge-mailboard`.
 
-`collect.mjs` ne lance jamais Edge et n'ouvre jamais une session. Sans le
-wrapper Windows, Edge doit donc déjà tourner avec un port CDP :
+`collect.mjs` never starts Edge and never opens a session. Without the Windows
+wrapper, Edge must already be running with a CDP port:
 
 ```bash
 "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe" --remote-debugging-port=9222
 ```
 
-**Attendre un refus sur le profil par défaut.** Depuis Chromium 136, un
-navigateur refuse `--remote-debugging-port` quand il utilise le répertoire de
-données par défaut. Si `curl http://127.0.0.1:9222/json/version` ne répond pas,
-c'est le cas. La parade est un répertoire dédié, où l'on se connecte à Proton
-une fois pour toutes :
+**Expect a refusal on the default profile.** Since Chromium 136, a browser
+refuses `--remote-debugging-port` when it uses the default data directory. If
+`curl http://127.0.0.1:9222/json/version` does not answer, that is the case.
+The workaround is a dedicated directory, where you sign in to Proton once and
+for all:
 
 ```bash
 "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe" \
@@ -118,71 +124,71 @@ une fois pour toutes :
   --user-data-dir="$LOCALAPPDATA/Microsoft/Edge-mailboard"
 ```
 
-Le mot de passe, la 2FA et les alertes de sécurité restent gérés par le
-navigateur. Mailboard ne stocke aucun secret et ne saisit jamais d'identifiant.
+Password, 2FA and security alerts stay handled by the browser. Mailboard stores
+no secret and never types credentials.
 
-**Constaté sur Edge 154 :** un Edge déjà lancé absorbe le flag et l'ignore — le
-port reste fermé. Il faut donc bien un répertoire de données distinct, qui donne
-une seconde instance. Les fenêtres déjà ouvertes ne sont pas touchées.
+**Observed on Edge 154:** an Edge already running swallows the flag and ignores
+it — the port stays closed. A separate data directory, which gives a second
+instance, is therefore required. Windows already open are not touched.
 
-La vérification du profil demande en plus `--enable-automation`, sans lequel
-`Browser.getBrowserCommandLine` est refusé et le profil reste « non vérifiable ».
-Le collecteur continue dans ce cas : la vérification du navigateur et celle du
-compte affiché restent, elles, toujours actives.
+Profile verification also needs `--enable-automation`, without which
+`Browser.getBrowserCommandLine` is refused and the profile stays "unverifiable".
+The collector goes on in that case: browser verification and displayed-account
+verification always stay active.
 
-Sans session dans ce profil, Proton renvoie vers `account.proton.me`. Le
-collecteur s'arrête alors en `needs_user` : se connecter une fois dans cette
-fenêtre suffit, il ne saisira jamais d'identifiant à votre place.
+Without a session in that profile, Proton redirects to `account.proton.me`. The
+collector then stops with `needs_user`: signing in once in that window is
+enough; it will never type credentials for you.
 
-**Un port CDP ouvert pilote le navigateur.** N'importe quel programme local peut
-s'y connecter et agir comme vous dans cette fenêtre. Ouvrir ce port le temps de
-la collecte, fermer cette fenêtre Edge ensuite, et ne jamais l'exposer au réseau.
+**An open CDP port controls the browser.** Any local program can connect to it
+and act as you in that window. Open the port only for the collection, close
+that Edge window afterwards, and never expose it to the network.
 
-## Paliers
+## Stages
 
-| Palier | Commande | Ce qui est prouvé |
+| Stage | Command | What is proven |
 |---|---|---|
-| **A** | `node collectors/browser-mail/collect.mjs --check` | le bon navigateur, un onglet créé puis refermé, aucune boîte ouverte |
-| **B** | `… --observe --source proton-perso` | boîte atteinte, compte vérifié, lignes comptées. Le run n'a **ni objet, ni expéditeur, ni extrait** |
-| **C** | `… --source proton-perso` | lignes normalisées vers le contrat de run v2 |
-| **D** | — | le dashboard affiche la provenance et la fraîcheur par canal |
+| **A** | `node collectors/browser-mail/collect.mjs --check` | the right browser, a tab created then closed, no mailbox opened |
+| **B** | `… --observe --source proton-perso` | mailbox reached, account checked, rows counted. The run has **no subject, sender or excerpt** |
+| **C** | `… --source proton-perso` | rows normalized to the v2 run contract |
+| **D** | — | the dashboard shows provenance and freshness per channel |
 
-`--dry` écrit le run nulle part et affiche ce qui serait produit.
+`--dry` writes the run nowhere and prints what would be produced.
 
-Déclarer le canal dans `config/channels.local.json` (voir
-`config/channels.example.json`). Le port se surcharge par `browser.port` ou par
+Declare the channel in `config/channels.local.json` (see
+`config/channels.example.json`). The port is overridden by `browser.port` or by
 `MAILBOARD_CDP_PORT`.
 
-## Ce que le collecteur ne fait jamais
+## What the collector never does
 
-- lancer ou fermer le navigateur ;
-- lire ou piloter un onglet qu'il n'a pas créé ;
-- saisir un identifiant, un mot de passe ou un code 2FA ;
-- ouvrir un message — cela le marquerait comme lu, donc modifierait le compte
-  distant. `readMode: "list-only"` l'interdit, et le résumé est l'extrait
-  affiché par Proton, parfois court ;
-- composer, répondre, supprimer, archiver, étiqueter, télécharger une pièce
-  jointe ou suivre un lien contenu dans un mail ;
-- naviguer hors du webmail configuré — l'origine est vérifiée avant la
-  navigation **et après**, car une page peut rediriger ;
-- conserver une capture d'écran ou un DOM brut.
+- start or close the browser;
+- read or drive a tab it did not create;
+- type a login, a password or a 2FA code;
+- open a message — that would mark it as read, hence change the remote account.
+  `readMode: "list-only"` forbids it, and the summary is the excerpt shown by
+  Proton, sometimes short;
+- compose, reply, delete, archive, label, download an attachment or follow a
+  link contained in a mail;
+- navigate outside the configured webmail — the origin is checked before
+  navigation **and after**, since a page can redirect;
+- keep a screenshot or raw DOM.
 
-Un texte de mail est une donnée, jamais une instruction. Les protections
-ci-dessus sont codées dans `edge.mjs`, pas confiées à un prompt.
+Mail text is data, never an instruction. The protections above are coded in
+`edge.mjs`, not left to a prompt.
 
-## Statuts
+## Statuses
 
-`collector.status` dit pourquoi un run est vide, au lieu de laisser croire à une
-boîte silencieuse :
+`collector.status` says why a run is empty, instead of suggesting a silent
+mailbox:
 
-| Statut | Quand |
+| Status | When |
 |---|---|
-| `ok` | collecte terminée dans la fenêtre demandée |
-| `partial` | atteint, mais sélecteurs inconnus ou liste tronquée |
-| `needs_user` | session expirée, verrouillée, 2FA, ou aucun Edge en débogage |
-| `wrong_account` | navigateur, profil ou compte différent de la configuration |
-| `unavailable` | CDP injoignable ou muet |
-| `error` | tout le reste, y compris une navigation hors périmètre |
+| `ok` | collection finished within the requested window |
+| `partial` | reached, but unknown selectors or truncated list |
+| `needs_user` | expired or locked session, 2FA, or no Edge in debug mode |
+| `wrong_account` | browser, profile or account differs from the configuration |
+| `unavailable` | CDP unreachable or silent |
+| `error` | everything else, including navigation out of scope |
 
 ## Tests
 
@@ -190,38 +196,37 @@ boîte silencieuse :
 node --test collectors/browser-mail/collect.test.mjs
 ```
 
-Forme du run, fenêtre, identité, classement local, et les états de session
-(SSO, page de connexion, mauvais compte, sélecteurs obsolètes) et l'analyse des
-dates localisées : 18 cas, sans navigateur.
+Run shape, window, identity, local classification, session states (SSO, login
+page, wrong account, stale selectors) and parsing of localized dates: 18 cases,
+no browser.
 
-Les sélecteurs Proton se vérifient dans un vrai DOM. La page témoin exécute les
-expressions exportées par `proton.mjs` — pas une copie — contre une liste
-imitée :
+Proton selectors are checked against a real DOM. The fixture page runs the
+expressions exported by `proton.mjs` — not a copy — against an imitated list:
 
 ```bash
 npx --yes serve . -l 4180
 ```
 
-puis ouvrir `http://127.0.0.1:4180/collectors/browser-mail/providers/proton.fixture.html`.
-15 sondes doivent être vertes.
+then open `http://127.0.0.1:4180/collectors/browser-mail/providers/proton.fixture.html`.
+15 probes must be green.
 
-La page témoin prouve la logique d'extraction, pas que Proton expose encore ces
-attributs. C'est le palier B qui tranche, et ce qu'il a trouvé sur la vraie
-boîte le 22 septembre 2026 est désormais reflété ici :
+The fixture page proves the extraction logic, not that Proton still exposes
+these attributes. Stage B decides, and what it found on the real mailbox on
+22 September 2026 is now reflected here:
 
-| Relevé | Conséquence |
+| Finding | Consequence |
 |---|---|
-| la classe d'un mail non lu est `unread`, pas `item-is-unread` | tous les mails passaient pour lus |
-| `<time datetime>` contient « mardi 22 septembre 2026 à 11:45 », pas de l'ISO | la fenêtre comparait des chaînes de texte et ne filtrait rien |
-| les lignes sont rendues en squelette (`item-is-loading`) avant d'être remplies | lire trop tôt donnait des dates vides et un compte « illisible » |
-| l'URL de la boîte dépend de la position du compte (`/u/1/`, pas `/u/0/`) | une session valide passait pour une déconnexion |
-| la liste est virtualisée : 50 lignes rendues, pas toute la boîte | `coverage.complete` ne vaut que si une ligne plus ancienne que la fenêtre est visible |
+| the class of an unread mail is `unread`, not `item-is-unread` | every mail looked read |
+| `<time datetime>` holds "mardi 22 septembre 2026 à 11:45", not ISO | the window compared text strings and filtered nothing |
+| rows render as skeletons (`item-is-loading`) before being filled | reading too early gave empty dates and an "unreadable" account |
+| the inbox URL depends on the account position (`/u/1/`, not `/u/0/`) | a valid session looked like a sign-out |
+| the list is virtualized: 50 rows rendered, not the whole mailbox | `coverage.complete` only holds when a row older than the window is visible |
 
-`readyState: complete` ne suffit donc pas : `openInbox` attend que les lignes
-soient hydratées, puis vérifie le compte, et seulement ensuite lit la liste.
+`readyState: complete` is therefore not enough: `openInbox` waits for rows to be
+hydrated, then checks the account, and only then reads the list.
 
-Un détail volontaire de la page témoin : la troisième ligne n'a pas de
-`data-element-id`. Comme la stratégie retient **le premier sélecteur qui
-matche**, elle n'est pas collectée — les lignes restent homogènes plutôt que
-mélangées. L'empreinte de repli sert quand Proton retire l'attribut partout, pas
-ligne à ligne.
+One deliberate detail of the fixture page: the third row has no
+`data-element-id`. Since the strategy keeps **the first selector that
+matches**, it is not collected — rows stay homogeneous rather than mixed. The
+fallback fingerprint is for when Proton removes the attribute everywhere, not
+row by row.

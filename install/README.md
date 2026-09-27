@@ -1,67 +1,76 @@
 # Installation
 
-Mailboard tourne sur un poste Windows avec l'app desktop Claude ouverte : la
-tâche planifiée collecte Gmail par le connecteur, puis lance l'orchestrateur
-qui collecte Proton dans Edge et ingère le tout.
+Mailboard runs on a Windows machine with the Claude desktop app open: the
+scheduled task collects Gmail through the connector, then starts the
+orchestrator, which collects Proton in Edge and ingests everything.
 
-## 1. Prérequis
+To use only the CLI, API or MCP server, no clone is needed: see
+[the package README](../README.md) (`npx @medyll/jobmailboard`).
 
-- Node.js 22 ou plus récent (aucune dépendance npm).
-- PowerShell 7 (`pwsh`) et Microsoft Edge, pour le canal Proton.
-- L'app desktop Claude, avec le connecteur Gmail activé.
+## 1. Prerequisites
+
+- Node.js 22.22.2 or later, with npm.
+- Microsoft Edge for the Proton channel; PowerShell 7 (`pwsh`) to let the
+  wrapper start Edge automatically.
+- The Claude desktop app, with the Gmail connector enabled.
 
 ```bash
 git clone https://github.com/medyll/mailboard.git
 cd mailboard
-node --test
+npm ci
+npm run build
+npm test
 ```
 
-## 2. Canaux
+## 2. Channels
 
-Copier `config/channels.example.json` en `config/channels.local.json` (ignoré
-par Git), puis garder activés seulement les canaux utilisés. Pour la veille
-standard :
+Copy `config/channels.example.json` to `config/channels.local.json` (ignored by
+Git), then keep only the channels you use enabled. For the standard watch:
 
-- `gmail-primary` : `accessMode: "connector"`, collecté par la tâche planifiée ;
-- `proton-perso` : `accessMode: "browser"`, collecté par l'orchestrateur.
+- `gmail-primary`: `accessMode: "connector"`, collected by the scheduled task;
+- `proton-perso`: `accessMode: "browser"`, collected by the orchestrator.
 
-Mettre l'adresse réelle dans `accountHint`. Aucun mot de passe ni jeton dans ce
-fichier.
+Put the real address in `accountHint`. No password or token in that file.
 
-## 3. Profil Edge (canal Proton)
+## 3. Edge profile (Proton channel)
 
-Premier lancement manuel, pour ouvrir le profil dédié et se connecter à Proton :
+First manual start, to open the dedicated profile and sign in to Proton:
 
 ```bash
 pwsh -File collectors/browser-mail/run.ps1 --check --keep-edge-open
 ```
 
-Se connecter à Proton dans la fenêtre Edge ouverte, puis la fermer. Détails dans
+Sign in to Proton in the Edge window that opens, then close it. Details in
 [collectors/browser-mail/README.md](../collectors/browser-mail/README.md).
 
-## 4. Tâche planifiée
+For the orchestrator to go through this wrapper (and start/stop Edge itself),
+set `MAILBOARD_PWSH=pwsh` in the user environment. Without it, the orchestrator
+uses the Node collector, which expects Edge to be already running with its CDP
+port open.
 
-Dans l'app desktop Claude, créer une tâche planifiée locale, dossier de travail
-= ce dépôt :
+## 4. Scheduled task
 
-- nom : « Veille emploi — mailboard » ;
-- horaire : `0 6,15 * * *` (heure locale) ;
-- prompt : le contenu de [veille-emploi.prompt.md](veille-emploi.prompt.md), en
-  remplaçant `{{MAILBOARD_DIR}}` par le chemin absolu du dépôt.
+In the Claude desktop app, create a local scheduled task whose working folder
+is this repository:
 
-Lancer un premier passage à la main (« Run now ») et accepter les autorisations
-demandées (connecteur Gmail, `node`, `pwsh`). Vérifier ensuite que
-`data/cycle-state.json` montre `ingest.status: "ok"`.
+- name: "Veille emploi — mailboard";
+- schedule: `0 6,15 * * *` (local time);
+- prompt: the content of [veille-emploi.prompt.md](veille-emploi.prompt.md),
+  replacing `{{MAILBOARD_DIR}}` with the absolute path of the repository.
 
-La tâche ne tourne que si l'app est ouverte ; un passage manqué est rattrapé au
-lancement suivant, et les runs restés dans `data/runs-inbox/` sont repris par le
-cycle d'après.
+Run a first pass by hand ("Run now") and accept the requested permissions
+(Gmail connector, `node`, `pwsh`). Then check that `data/cycle-state.json`
+shows `ingest.status: "ok"`.
+
+The task only runs while the app is open; a missed pass is caught up at the
+next start, and runs left in `data/runs-inbox/` are picked up by the following
+cycle.
 
 ## 5. Dashboard
 
-Ouvrir `dashboard/index.html` au double-clic.
+Open `dashboard/index.html` with a double-click.
 
-## Mise à jour du prompt
+## Updating the prompt
 
-Le prompt de référence est `install/veille-emploi.prompt.md`. Après l'avoir
-modifié, recopier sa nouvelle version dans la tâche planifiée.
+The reference prompt is `install/veille-emploi.prompt.md`. After changing it,
+copy the new version into the scheduled task.
