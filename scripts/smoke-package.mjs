@@ -57,7 +57,7 @@ try {
   const client = new Client({ name: 'package-smoke', version: '1.0.0' });
   try {
     await client.connect(transport);
-    assert.equal((await client.listTools()).tools.length, 8);
+    assert.equal((await client.listTools()).tools.length, 11);
     const reply = await client.callTool({ name: 'ingest_runs', arguments: {} });
     assert.ok(!reply.isError);
     assert.equal(JSON.parse(reply.content[0].text).added, 0);
