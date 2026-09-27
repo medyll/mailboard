@@ -1,0 +1,96 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: jobmailboard-release-main
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    if: github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/ci.yml
+
+  release:
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Une validation ancienne ne doit pas publier un nouveau HEAD non testé.
+      - name: Verify validated commit
+        id: candidate
+        env:
+          VALIDATED_SHA: ${{ github.sha }}
+        run: |
+          if [ "$(git rev-parse HEAD)" = "$VALIDATED_SHA" ]; then
+            echo "current=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "current=false" >> "$GITHUB_OUTPUT"
+            echo "main has advanced; its own workflow will handle the release."
+          fi
+
+      - uses: pnpm/action-setup@v4
+        if: steps.candidate.outputs.current == 'true'
+        with:
+          version: 10
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        if: steps.candidate.outputs.current == 'true'
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          cache: npm
+
+      - name: Install dependencies
+        if: steps.candidate.outputs.current == 'true'
+        run: npm ci
+
+      - name: Verify npm credentials
+        if: steps.candidate.outputs.current == 'true'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN || secrets.NPM_TOKEN_2026 }}
+        run: node -e "if (!process.env.NODE_AUTH_TOKEN) throw new Error('Configure NPM_TOKEN or NPM_TOKEN_2026 in repository Actions secrets.');"
+
+      - name: Configure git identity
+        if: steps.candidate.outputs.current == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      # L'outil pousse lui-même le commit et les tags avant le publish.
+      - name: Release version, changelog and npm package
+        if: steps.candidate.outputs.current == 'true'
+        run: npx --yes @medyll/idae-pnpm-release@1.0.47 --verbose
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN || secrets.NPM_TOKEN_2026 }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN || secrets.NPM_TOKEN_2026 }}
+          GITHUB_REF: ${{ github.ref }}
+
+      # Le helper met à jour package.json ; npm conserve aussi sa version dans le lockfile.
+      - name: Synchronize npm lockfile
+        if: steps.candidate.outputs.current == 'true'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN || secrets.NPM_TOKEN_2026 }}
+        run: |
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          if ! git diff --quiet -- package-lock.json; then
+            git add package-lock.json
+            git commit -m "chore(release): sync npm lockfile [skip ci]"
+            git push origin main
+          fi

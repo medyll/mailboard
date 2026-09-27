@@ -1,0 +1,6 @@
+{
+  "build": false,
+  "package": false,
+  "generate-readme-root": false,
+  "ignore-file-changes": ["CHANGELOG.md", "package.json", "package-lock.json"]
+}

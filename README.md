@@ -141,7 +141,28 @@ est absent. Les autres tests n’exigent ni boîte mail, ni réseau JEV, ni navi
 
 Les scripts historiques ci-dessous restent utilisables dans le dépôt source.
 La licence est provisoirement `UNLICENSED` : choisir une licence avant la première
-publication publique. Aucune publication, release ni push n’est automatisé.
+publication publique.
+
+## Publication par GitHub Actions
+
+Le workflow `Release` se déclenche sur un push vers `main`, ou manuellement depuis
+`main`. Il réutilise la CI complète : Windows/Linux/macOS × Node 22/24, typecheck,
+build, tests, package et smoke test. Une validation en échec bloque la publication.
+Les autres branches et les pull requests exécutent la CI sans publication.
+
+Le job de release utilise `@medyll/idae-pnpm-release@1.0.47`, comme les workflows
+des projets idae et acp-team : augmentation de version, changelog, commit et tag,
+puis publication sur npm. Le build de publication est assuré par `prepack` après
+la mise à jour de version. pnpm est installé uniquement pour le helper de release ;
+le dépôt conserve npm et `package-lock.json` pour ses installations et validations.
+Le lockfile est ensuite synchronisé et committé si nécessaire. Les changements de
+version, changelog et lockfile seuls ne déclenchent pas une nouvelle version.
+
+Configurer un secret Actions `NPM_TOKEN` ayant le droit de publier le scope
+`@medyll`, ou `NPM_TOKEN_2026` en repli. `GITHUB_TOKEN` est fourni par GitHub.
+La branche `main` doit autoriser le bot à pousser les commits et les tags de release ;
+si une protection l’interdit, le helper échoue avant de publier. Aucun token n’est
+stocké dans le dépôt. Aucun workflow de publication n’a été exécuté localement.
 
 ## Organisation du dépôt historique
 

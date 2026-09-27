@@ -2,7 +2,13 @@
 
 Le dépôt est devenu un package npm exécutable, avec CLI, API publique et serveur
 MCP stdio. Les fonctionnalités existantes sont conservées. Aucune publication npm,
-aucun push, aucune release et aucun commit n’ont été effectués.
+aucun push ni aucune release n’ont été exécutés pendant l’implémentation.
+
+Le workflow de publication ajouté ensuite suit les projets idae et acp-team :
+push sur `main` ou lancement manuel sur `main`, validation complète via la CI
+réutilisable, puis `@medyll/idae-pnpm-release@1.0.47`. Le helper gère version,
+changelog, commit, tag et publication. Le secret est `NPM_TOKEN`, avec
+`NPM_TOKEN_2026` en repli. Le lockfile npm est synchronisé après la release.
 
 ## Fichiers créés et modifiés
 
@@ -15,7 +21,7 @@ aucun push, aucune release et aucun commit n’ont été effectués.
 | MCP | `src/mcp/index.ts`, `src/mcp/server.ts`, `src/mcp/tools/index.ts`, `src/mcp/resources/index.ts` | Transport stdio, huit tools et ressource de réglages |
 | Configuration distribuée | `assets/config/criteria.json`, `preferences.json`, `jev.json`, `channels.local.json` | Valeurs génériques ; aucun compte personnel ; JEV désactivé |
 | Build et validation | `scripts/build.mjs`, `scripts/test.mjs`, `scripts/smoke-package.mjs`, `tests/core/mailboard.test.mjs`, `tests/cli/cli.test.mjs`, `tests/mcp/mcp.test.mjs` | Assets, tests existants et nouveaux, test du vrai package installé |
-| CI | `.github/workflows/ci.yml` remplace `.github/workflows/test.yml` | Windows/Linux/macOS × Node 22/24 |
+| CI et publication | `.github/workflows/ci.yml` remplace `.github/workflows/test.yml`, `.github/workflows/release.yml`, `.idae-pnpm-release` | Windows/Linux/macOS × Node 22/24, puis release sur main |
 | Compatibilité historique | `ingest/ingest.mjs`, `ingest/missing-bodies.mjs`, `ingest/jev-backfill.mjs`, `ingest/jev-agreement.mjs` | Entrées conservées, devenues des adaptateurs du cœur |
 | Modules existants adaptés | `config/load.mjs`, `ingest/jev-labels.mjs`, `orchestrator/run-cycle.mjs`, `settings/server.mjs`, `collectors/browser-mail/collect.mjs` | Répertoires explicites, réutilisation des services, configuration propre à chaque espace |
 | Documentation | `README.md`, `.gitignore`, `IMPLEMENTATION.md` | Usage, architecture, limites, fichiers générés ignorés et bilan |
@@ -114,8 +120,9 @@ Avant la première publication :
 
 1. Choisir la licence ; les métadonnées portent provisoirement `UNLICENSED`.
 2. Faire valider la matrice CI après un futur push autorisé.
-3. Vérifier les droits de publication du scope `@medyll`, puis publier à la demande
-   avec `npm publish --access public`.
+3. Configurer `NPM_TOKEN` ou `NPM_TOKEN_2026` et les droits du bot sur `main`.
+   Un push sur `main` ou le lancement manuel du workflow `Release` publiera après
+   validation complète, avec `publishConfig.access: public`.
 
 Les commandes `npx @medyll/jobmailboard` et `npx @medyll/jobmailboard mcp` sont
 prêtes côté package et deviendront disponibles depuis le registre après cette
