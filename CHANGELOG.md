@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.1.3] - 2026-09-27
+**Features:**
+- navigate with jev-ultrafast by default
+- read mail bodies in readMode full
+
+**Chores:**
+- sync npm lockfile [skip ci]
+
+
+
 ## [0.1.2] - 2026-09-27
 **Features:**
 - translate dashboard, settings, labeling, CLI and MCP texts to English

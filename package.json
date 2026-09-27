@@ -1,6 +1,6 @@
 {
   "name": "@medyll/jobmailboard",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Local job-mail tracking with JSONL storage, CLI, static dashboard and MCP server",
   "type": "module",
   "author": "Meddy Lebrun",
