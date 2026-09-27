@@ -9,10 +9,16 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { loadJev } from '../config/load.mjs';
 
-export const labelsFile = (root) => path.join(root, 'data', 'jev-labels.json');
+// Un relecteur autre que l'humain (`claude`, par exemple) a son propre
+// fichier : ses étiquettes ne se mélangent jamais aux vôtres, et le rapport
+// d'accord peut comparer JEV à l'un ou à l'autre.
+export const labelsFile = (root, reviewer = 'human') => {
+  if (!/^[a-z][a-z0-9-]{0,31}$/.test(reviewer)) throw new Error(`relecteur invalide : ${reviewer}`);
+  return path.join(root, 'data', reviewer === 'human' ? 'jev-labels.json' : `jev-labels.${reviewer}.json`);
+};
 
-export function readLabels(root) {
-  const file = labelsFile(root);
+export function readLabels(root, reviewer = 'human') {
+  const file = labelsFile(root, reviewer);
   if (!fs.existsSync(file)) return { schemaVersion: 1, labels: {} };
   const raw = JSON.parse(fs.readFileSync(file, 'utf8'));
   return { schemaVersion: 1, labels: raw.labels ?? {} };
@@ -64,10 +70,10 @@ export function validateLabel(answers, questions) {
 }
 
 /** Écrit ou retire une étiquette. Écriture atomique : un fichier à moitié écrit perdrait tout le travail. */
-export function saveLabel(root, { key, answers, edited }) {
+export function saveLabel(root, { key, answers, edited, reviewer = 'human', model }) {
   if (typeof key !== 'string' || !key.includes(':')) return { ok: false, status: 422, errors: ['key invalide'] };
   const { questionSet, questions } = labelQuestions(fs.existsSync(path.join(root, 'config', 'jev.json')) ? root : undefined);
-  const store = readLabels(root);
+  const store = readLabels(root, reviewer);
 
   if (answers === null) {
     delete store.labels[key];
@@ -80,11 +86,12 @@ export function saveLabel(root, { key, answers, edited }) {
       questionSet,
       labeledAt: new Date().toISOString(),
       ...(typeof edited === 'boolean' ? { edited } : {}),
+      ...(reviewer !== 'human' ? { reviewer, ...(model ? { model } : {}) } : {}),
       answers,
     };
   }
 
-  const file = labelsFile(root);
+  const file = labelsFile(root, reviewer);
   fs.mkdirSync(path.dirname(file), { recursive: true });
   const temp = `${file}.${process.pid}.tmp`;
   fs.writeFileSync(temp, JSON.stringify(store, null, 2) + '\n');

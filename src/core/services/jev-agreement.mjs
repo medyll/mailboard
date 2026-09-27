@@ -15,8 +15,8 @@ import path from 'node:path';
 import { messageKey } from '../../../config/load.mjs';
 import { readLabels, labelQuestions } from '../../../ingest/jev-labels.mjs';
 
-/** @param {{root: string, configRoot?: string, logger?: import('../../adapters/logger.js').Logger}} options */
-export function jevAgreement({ root, configRoot, logger = globalThis.console }) {
+/** @param {{root: string, configRoot?: string, reference?: string, logger?: import('../../adapters/logger.js').Logger}} options */
+export function jevAgreement({ root, configRoot, reference = 'human', logger = globalThis.console }) {
 const console = logger;
 
 const ROOT = path.resolve(root);
@@ -32,7 +32,9 @@ const messages = (fs.existsSync(messageFile) ? fs.readFileSync(messageFile, 'utf
 const byKey = new Map(messages.map((m) => [m.key ?? messageKey(m.sourceId, m.id), m]));
 
 const { questionSet, questions } = labelQuestions(configRoot);
-const { labels } = readLabels(ROOT);
+const { labels } = readLabels(ROOT, reference);
+// Nom affiché de la référence : « humain », ou le relecteur (claude…).
+const who = reference === 'human' ? 'humain' : reference;
 
 // Paires (humain, JEV) comparables : même jeu de questions, décision JEV valide.
 const pairs = Object.entries(labels)
@@ -41,15 +43,15 @@ const pairs = Object.entries(labels)
   .filter((p) => p.jev?.status === 'ok');
 
 const pct = (n, d) => (d ? `${Math.round((100 * n) / d)} %` : '—');
-const report = { type: 'mailboard.jev-agreement.result', questionSet, labeled: pairs.length, questions: {} };
+const report = { type: 'mailboard.jev-agreement.result', reference, questionSet, labeled: pairs.length, questions: {} };
 
-console.log(`JEV vs humain — ${pairs.length} message(s) étiqueté(s), jeu ${questionSet}\n`);
+console.log(`JEV vs ${who} — ${pairs.length} message(s) étiqueté(s), jeu ${questionSet}\n`);
 
 // Une étiquette enregistrée sans rien toucher mesure les valeurs préremplies,
 // pas le jugement humain. Au-delà d'un tiers, le rapport n'est pas fiable.
 const untouched = pairs.filter((p) => labels[p.key].edited === false).length;
 report.untouched = untouched;
-if (pairs.length && untouched / pairs.length > 1 / 3) {
+if (reference === 'human' && pairs.length && untouched / pairs.length > 1 / 3) {
   console.log(
     `⚠ ${untouched}/${pairs.length} étiquettes enregistrées sans aucune modification : ` +
       `ce rapport reflète surtout les valeurs préremplies. Ne pas en tirer de seuil.\n`,
@@ -75,11 +77,11 @@ for (const q of questions) {
     const suggested = pos.length >= MIN_POSITIVES ? Math.floor(minPos * 100) / 100 : null;
     const s = suggested !== null ? at(suggested) : null;
     console.log(
-      `${q.id} (oui/non) — ${rows.length} cas, ${pos.length} « oui » humain(s)\n` +
+      `${q.id} (oui/non) — ${rows.length} cas, ${pos.length} « oui » ${who}\n` +
         `  seuil 0,5 : ${base.tp} vrai(s) positif(s), ${base.fp} faux positif(s), ${base.fn} manqué(s)\n` +
         (s
           ? `  seuil proposé ${suggested} : 0 manqué, ${s.fp} faux positif(s), précision ${pct(s.tp, s.tp + s.fp)}`
-          : `  seuil proposé : aucun (il faut au moins ${MIN_POSITIVES} « oui » humains)`),
+          : `  seuil proposé : aucun (il faut au moins ${MIN_POSITIVES} « oui » ${who})`),
     );
     report.questions[q.id] = { n: rows.length, positives: pos.length, at05: base, suggested, atSuggested: s };
   } else if (q.primitive === 'choice') {
@@ -90,7 +92,7 @@ for (const q of questions) {
     console.log(`${q.id} (choix) — accord ${pct(ok.length, rows.length)} (${ok.length}/${rows.length})`);
     const confusions = {};
     for (const r of wrong) {
-      const k = `humain ${r.human} ← JEV ${r.jev.value}`;
+      const k = `${who} ${r.human} ← JEV ${r.jev.value}`;
       confusions[k] = (confusions[k] ?? 0) + 1;
     }
     for (const [k, n] of Object.entries(confusions).sort((a, b) => b[1] - a[1])) console.log(`  ${n} × ${k}`);
@@ -105,6 +107,37 @@ for (const q of questions) {
   }
 }
 
-if (!pairs.length) console.log('Aucune étiquette. Ouvrir dashboard/labeling-component/ via node settings/server.mjs.');
+// Un relecteur outillé ne vaut référence que s'il s'accorde avec vous : on le
+// mesure sur les mails que vous avez étiquetés tous les deux.
+if (reference !== 'human') {
+  const mine = readLabels(ROOT, 'human').labels;
+  const both = Object.keys(labels).filter((k) => mine[k]?.questionSet === questionSet && labels[k].questionSet === questionSet);
+  const calibration = { overlap: both.length, questions: {} };
+  if (both.length) console.log(`\n${who} vs humain — ${both.length} mail(s) étiqueté(s) des deux côtés`);
+  for (const q of questions) {
+    const rows = both
+      .map((k) => ({ a: labels[k].answers[q.id], b: mine[k].answers[q.id] }))
+      .filter((r) => r.a !== undefined && r.a !== null && r.b !== undefined && r.b !== null);
+    if (!rows.length) continue;
+    if (q.primitive === 'score') {
+      const mae = rows.reduce((t, r) => t + Math.abs(r.a - r.b), 0) / rows.length;
+      console.log(`  ${q.id} : écart moyen ${mae.toFixed(2)} niveau(x) sur ${rows.length}`);
+      calibration.questions[q.id] = { n: rows.length, mae: Math.round(mae * 100) / 100 };
+    } else {
+      const same = rows.filter((r) => r.a === r.b).length;
+      console.log(`  ${q.id} : accord ${pct(same, rows.length)} (${same}/${rows.length})`);
+      calibration.questions[q.id] = { n: rows.length, agreement: same / rows.length };
+    }
+  }
+  report.calibration = calibration;
+}
+
+if (!pairs.length) {
+  console.log(
+    reference === 'human'
+      ? 'Aucune étiquette. Ouvrir dashboard/labeling-component/ via node settings/server.mjs.'
+      : `Aucune étiquette ${who}. Lancer une relecture : outil MCP jev_review_queue puis jev_review_save.`,
+  );
+}
 return report;
 }

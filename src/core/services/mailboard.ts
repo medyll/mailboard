@@ -9,6 +9,7 @@ import { ingestRuns } from './ingestion.mjs';
 import { backfillJev } from './jev-backfill.mjs';
 import { missingBodies } from './missing-bodies.mjs';
 import { jevAgreement } from './jev-agreement.mjs';
+import { reviewQueue, saveReview } from './jev-review.mjs';
 import { runCycle } from '../../../orchestrator/run-cycle.mjs';
 import { loadCriteria, messageKey } from '../../../config/load.mjs';
 import { readSettings } from '../../../settings/config.mjs';
@@ -61,7 +62,13 @@ export class Mailboard {
   private configRoot(): string {
     return fs.existsSync(path.join(this.root, 'config', 'criteria.json')) ? this.root : fileURLToPath(new URL('../../../assets/', import.meta.url));
   }
-  agreement() { return jevAgreement({ root: this.root, configRoot: this.configRoot(), logger: this.logger }); }
+  agreement(reference = 'human') { return jevAgreement({ root: this.root, configRoot: this.configRoot(), reference, logger: this.logger }); }
+  reviewQueue(reviewer = 'claude', limit = 10, order: 'recent' | 'uncertain' = 'recent') {
+    return reviewQueue({ root: this.root, configRoot: this.configRoot(), reviewer, limit, order });
+  }
+  saveReview(options: { reviewer?: string; model?: string; labels: { key: string; answers: Record<string, unknown> | null }[] }) {
+    return this.mutate(async () => saveReview({ root: this.root, ...options }));
+  }
   collect(options: CollectOptions) {
     if (!options.check && !options.sourceId) throw new Error('sourceId est requis pour la collecte');
     if (options.nav !== undefined && !['direct', 'jev'].includes(options.nav)) throw new Error('nav attend direct ou jev');

@@ -14,7 +14,7 @@ export async function checkMcp(bin, root) {
   try {
     await client.connect(transport);
     const { tools } = await client.listTools();
-    assert.deepEqual(tools.map(t => t.name).sort(), ['collection_queries', 'get_message', 'ingest_runs', 'jev_backfill', 'list_messages', 'missing_bodies', 'rebuild_dashboard', 'run_cycle'].sort());
+    assert.deepEqual(tools.map(t => t.name).sort(), ['collection_queries', 'get_message', 'ingest_runs', 'jev_agreement', 'jev_backfill', 'jev_review_queue', 'jev_review_save', 'list_messages', 'missing_bodies', 'rebuild_dashboard', 'run_cycle'].sort());
     const call = async (name, args = {}) => {
       const reply = await client.callTool({ name, arguments: args });
       assert.ok(!reply.isError, reply.content?.[0]?.text);

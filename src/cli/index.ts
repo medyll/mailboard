@@ -15,7 +15,9 @@ Usage: jobmailboard <command> [options]
   message --source ID --id ID  Read a message and its body
   queries [--provider gmail --window 12]  Queries per enabled criterion
   jev-backfill [--source ID --limit 20 --dry --stale]
-  jev-agreement         Compare JEV with human labels
+  jev-agreement [--reference human|claude]  Compare JEV with human (or reviewer) labels
+  jev-review [--reviewer claude --limit 10 --order recent|uncertain]  Next blind batch for a tooled reviewer
+  jev-review --file labels.json [--reviewer claude]  Save the reviewer's answers
   serve [--port 4177]   Dashboard and settings on 127.0.0.1
   mcp                   MCP stdio server (stdout reserved for the protocol)
 
@@ -49,7 +51,15 @@ export async function main(args = process.argv.slice(2)): Promise<void> {
     case 'messages': result = board.listMessages({ sourceId: values.source, category: values.category, query: values.query, limit }); break;
     case 'message': result = board.getMessage(values.source!, values.id!); break;
     case 'queries': result = board.queries(values.provider, values.window === undefined ? undefined : Number(values.window)); break;
-    case 'jev-agreement': result = board.agreement(); break;
+    case 'jev-agreement': result = board.agreement(values.reference); break;
+    case 'jev-review': {
+      if (values.file) {
+        const raw = JSON.parse((await import('node:fs')).readFileSync(values.file, 'utf8'));
+        const labels = Array.isArray(raw) ? raw : raw.labels;
+        result = await board.saveReview({ reviewer: values.reviewer ?? raw.reviewer, model: raw.model, labels });
+      } else result = board.reviewQueue(values.reviewer, limit, values.order as 'recent' | 'uncertain' | undefined);
+      break;
+    }
     case 'collect': {
       const collected = await board.collect({ sourceId: values.source, check: values.check, observe: values.observe, dry: values.dry,
         nav: values.nav as 'direct' | 'jev' | undefined, windowHours: values.window === undefined ? undefined : Number(values.window), maxItems: values.max === undefined ? undefined : Number(values.max) });

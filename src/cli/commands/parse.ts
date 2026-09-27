@@ -1,13 +1,13 @@
 import { parseArgs } from 'node:util';
 
-export const commands = ['init', 'ingest', 'rebuild', 'cycle', 'collect', 'missing-bodies', 'messages', 'message', 'queries', 'jev-backfill', 'jev-agreement', 'serve', 'mcp'] as const;
+export const commands = ['init', 'ingest', 'rebuild', 'cycle', 'collect', 'missing-bodies', 'messages', 'message', 'queries', 'jev-backfill', 'jev-agreement', 'jev-review', 'serve', 'mcp'] as const;
 export type Command = typeof commands[number];
 const commandOptions: Record<Command, string[]> = {
   init: [], ingest: ['dry', 'jev'], rebuild: [], cycle: ['skip-collect', 'retry-failed'],
   collect: ['source', 'check', 'observe', 'dry', 'nav', 'window', 'max'],
   'missing-bodies': ['source', 'limit'], messages: ['source', 'limit', 'query', 'category'],
   message: ['source', 'id'], queries: ['provider', 'window'],
-  'jev-backfill': ['source', 'limit', 'dry', 'stale'], 'jev-agreement': [], serve: ['port'], mcp: [],
+  'jev-backfill': ['source', 'limit', 'dry', 'stale'], 'jev-agreement': ['reference'], 'jev-review': ['reviewer', 'limit', 'file', 'order'], serve: ['port'], mcp: [],
 };
 export function parseCli(args: string[]) {
   const parsed = parseArgs({ args, allowPositionals: true, strict: true, options: {
@@ -18,6 +18,7 @@ export function parseCli(args: string[]) {
     query: { type: 'string' }, category: { type: 'string' }, provider: { type: 'string' },
     window: { type: 'string' }, port: { type: 'string' },
     check: { type: 'boolean' }, observe: { type: 'boolean' }, nav: { type: 'string' }, max: { type: 'string' },
+    reference: { type: 'string' }, reviewer: { type: 'string' }, file: { type: 'string' }, order: { type: 'string' },
   } });
   if (parsed.positionals.length > 1) throw new Error('Only one command is expected.');
   const name = parsed.positionals[0];

@@ -307,6 +307,35 @@ projet. Si le besoin apparaît, elle exige une évaluation dédiée.
 - [ ] Les seuils proviennent d'un corpus labellisé, pas d'une intuition isolée.
 - [ ] Le coût et la latence sont mesurés sur un run réel avant activation continue.
 
+## Relecture outillée (boucle de mesure)
+
+Les étiquettes humaines coûtent du temps, et celles posées avant la récupération
+des corps jugeaient sur l'objet seul, comme JEV. Un relecteur outillé (Claude,
+via le serveur MCP ou la CLI) lit le **corps** et répond aux mêmes questions,
+à l'aveugle :
+
+- `jev_review_queue` (`jobmailboard jev-review`) : lot de mails avec leur corps
+  et les questions, sans aucune réponse JEV. `order: "uncertain"` place d'abord
+  les mails où JEV hésite sur une question oui/non : plus instructif, mais
+  l'échantillon n'est plus représentatif ;
+- `jev_review_save` (`jev-review --file`) : les réponses vont dans
+  `data/jev-labels.<relecteur>.json`, jamais dans les étiquettes humaines ;
+- `jev_agreement` avec `reference: "claude"` (`jev-agreement --reference
+  claude`) : JEV comparé au relecteur, plus la calibration relecteur ↔ humain
+  sur les mails étiquetés des deux côtés.
+
+Le corps ne quitte pas la machine par ce chemin : c'est l'agent local qui le lit.
+
+Première mesure (27/09/2026, 45 mails, dont 15 choisis par incertitude) : la
+catégorie d'événement s'accorde à 78 %, l'adéquation au poste à moins d'un
+niveau dans 82 % des cas. Les écarts se concentrent là où l'objet trompe : des
+refus (« Des nouvelles de votre candidature… ») classés `administrative`,
+`hasDeadline` levé à tort 7 fois sur 8, deux demandes de réponse manquées au
+seuil 0,5. JEV ne reçoit que l'objet et le résumé ; lui envoyer un extrait du
+corps corrigerait probablement ces cas, mais fait sortir le contenu des mails
+vers le fournisseur — une décision à prendre explicitement, pas un réglage par
+défaut.
+
 ## Critère d'arrêt
 
 Ne pas intégrer JEV au-delà du shadow mode si les décisions n'améliorent pas une
