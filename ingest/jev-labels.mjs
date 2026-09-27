@@ -64,7 +64,7 @@ export function validateLabel(answers, questions) {
 }
 
 /** Écrit ou retire une étiquette. Écriture atomique : un fichier à moitié écrit perdrait tout le travail. */
-export function saveLabel(root, { key, answers }) {
+export function saveLabel(root, { key, answers, edited }) {
   if (typeof key !== 'string' || !key.includes(':')) return { ok: false, status: 422, errors: ['key invalide'] };
   const { questionSet, questions } = labelQuestions();
   const store = readLabels(root);
@@ -74,7 +74,14 @@ export function saveLabel(root, { key, answers }) {
   } else {
     const errors = validateLabel(answers, questions);
     if (errors.length) return { ok: false, status: 422, errors };
-    store.labels[key] = { questionSet, labeledAt: new Date().toISOString(), answers };
+    // `edited` : une réponse au moins a été touchée. Absent sur les étiquettes
+    // antérieures à ce champ, qui restent donc « inconnu ».
+    store.labels[key] = {
+      questionSet,
+      labeledAt: new Date().toISOString(),
+      ...(typeof edited === 'boolean' ? { edited } : {}),
+      answers,
+    };
   }
 
   const file = labelsFile(root);

@@ -22,6 +22,9 @@ let labels = {};
 let queue = [];
 let current = null;
 let answers = {};
+// Vrai dès qu'une réponse a été touchée : le rapport repère ainsi les lots
+// enregistrés sans lecture.
+let edited = false;
 const skipped = new Set();
 
 const api = (method, body) =>
@@ -57,16 +60,20 @@ function buildQueue() {
 }
 
 function defaults(m) {
-  // Valeurs neutres, jamais celles de JEV : la plupart des mails sont des
-  // alertes sans action, un seul appui sur Entrée suffit alors.
+  // Valeurs neutres, jamais celles de JEV. Les choix restent vides
+  // (undefined, distinct du « ? » qui vaut null) : un premier lot validé à la
+  // chaîne sur Entrée a montré qu'un choix prérempli finit enregistré sans
+  // avoir été lu.
   const out = {};
   for (const q of visibleQuestions(m)) {
     if (q.primitive === 'noul') out[q.id] = false;
-    else if (q.primitive === 'choice') out[q.id] = 'information' in (q.options ?? {}) ? 'information' : null;
+    else if (q.primitive === 'choice') out[q.id] = undefined;
     else out[q.id] = q.requiresProfile ? null : 0;
   }
   return out;
 }
+
+const missingChoice = () => visibleQuestions(current).filter((q) => q.primitive === 'choice' && answers[q.id] === undefined);
 
 // Les questions de fit ne sont posées à JEV que pour certains critères : on
 // suit ce qu'il a reçu, sans regarder ce qu'il a répondu.
@@ -97,6 +104,8 @@ function renderForm() {
       b.setAttribute('aria-pressed', String(answers[q.id] === value));
       b.addEventListener('click', () => {
         answers[q.id] = value;
+        edited = true;
+        notice('');
         renderForm();
       });
       group.append(b);
@@ -119,6 +128,7 @@ function render() {
   }
 
   answers = defaults(current);
+  edited = false;
   $('meta').textContent = `${current.date?.slice(0, 10)} · ${current.sourceId} · ${current.category} · ${current.from}`;
   $('subject').textContent = current.subject;
   $('summary').textContent = current.summary || '(pas de résumé)';
@@ -145,10 +155,15 @@ function reveal(m, mine) {
 
 async function save() {
   if (!current) return;
+  const missing = missingChoice();
+  if (missing.length) {
+    notice(`Choisir une réponse pour : ${missing.map((q) => q.id).join(', ')} (« ? » si incertain).`);
+    return;
+  }
   const m = current;
   const mine = { ...answers };
   try {
-    await api('PUT', { key: m.key, answers: mine });
+    await api('PUT', { key: m.key, answers: mine, edited });
     labels[m.key] = { answers: mine };
     queue.shift();
     reveal(m, mine);
@@ -173,7 +188,8 @@ function notice(text) {
 $('save').addEventListener('click', save);
 $('skip').addEventListener('click', skip);
 document.addEventListener('keydown', (e) => {
-  if (e.target.closest?.('input, textarea, select')) return;
+  // Touche maintenue = répétition automatique : jamais une décision.
+  if (e.repeat || e.target.closest?.('input, textarea, select')) return;
   if (e.key === 'Enter') {
     e.preventDefault();
     save();

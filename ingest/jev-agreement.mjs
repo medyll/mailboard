@@ -44,6 +44,17 @@ const report = { type: 'mailboard.jev-agreement.result', questionSet, labeled: p
 
 console.log(`JEV vs humain — ${pairs.length} message(s) étiqueté(s), jeu ${questionSet}\n`);
 
+// Une étiquette enregistrée sans rien toucher mesure les valeurs préremplies,
+// pas le jugement humain. Au-delà d'un tiers, le rapport n'est pas fiable.
+const untouched = pairs.filter((p) => labels[p.key].edited === false).length;
+report.untouched = untouched;
+if (pairs.length && untouched / pairs.length > 1 / 3) {
+  console.log(
+    `⚠ ${untouched}/${pairs.length} étiquettes enregistrées sans aucune modification : ` +
+      `ce rapport reflète surtout les valeurs préremplies. Ne pas en tirer de seuil.\n`,
+  );
+}
+
 for (const q of questions) {
   const rows = pairs
     .filter((p) => p.human[q.id] !== undefined && p.human[q.id] !== null && p.jev.answers?.[q.id])

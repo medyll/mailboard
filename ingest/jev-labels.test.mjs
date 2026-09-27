@@ -69,7 +69,7 @@ test('rapport d accord : seuil sans faux négatif, confusions comptées', (t) =>
       sourceId: 'gmail-primary',
       jev: { status: 'ok', answers: { needsReply: { probability: p }, eventKind: { value: i === 9 ? 'invitation' : 'information', confidence: 0.99 } } },
     });
-    labels[key] = { questionSet, answers: { needsReply: i < 6, eventKind: 'information' } };
+    labels[key] = { questionSet, edited: i !== 0, answers: { needsReply: i < 6, eventKind: 'information' } };
   });
   fs.writeFileSync(path.join(root, 'data', 'messages.jsonl'), msgs.map((m) => JSON.stringify(m)).join('\n') + '\n');
   fs.writeFileSync(path.join(root, 'data', 'jev-labels.json'), JSON.stringify({ schemaVersion: 1, labels }));
@@ -80,6 +80,8 @@ test('rapport d accord : seuil sans faux négatif, confusions comptées', (t) =>
   });
   const report = JSON.parse(out.trim().split('\n').at(-1));
   assert.equal(report.labeled, 10);
+  assert.equal(report.untouched, 1);
+  assert.ok(!out.includes('⚠'), 'un sur dix sans modification : pas d alerte');
   assert.equal(report.questions.needsReply.suggested, 0.4);
   assert.equal(report.questions.needsReply.atSuggested.fn, 0);
   assert.equal(report.questions.needsReply.atSuggested.fp, 1);

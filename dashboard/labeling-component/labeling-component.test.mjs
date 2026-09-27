@@ -108,6 +108,17 @@ test('étiquetage à l aveugle : Entrée enregistre, JEV révélé après coup',
     assert.equal(await tab.eval(waitInPage(`document.querySelector('#subject')?.textContent === 'Rendez-vous proposé'`)), true);
     assert.equal(await tab.eval(`document.body.innerText.includes('0.99')`), false);
 
+    // Entrée sans choisir le type de mail : refusé, rien ne part.
+    await tab.eval(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }))`);
+    assert.equal(await tab.eval(waitInPage(`!document.querySelector('#notice').hidden`)), true);
+    assert.equal(await tab.eval(`document.querySelector('#subject').textContent`), 'Rendez-vous proposé');
+
+    // Touche maintenue : la répétition automatique est ignorée.
+    await tab.eval(`document.querySelector('button[title="information"]').click()`);
+    await tab.eval(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', repeat: true }))`);
+    await delay(200);
+    assert.equal(await tab.eval(`document.querySelector('#subject').textContent`), 'Rendez-vous proposé');
+
     await tab.eval(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }))`);
     assert.equal(await tab.eval(waitInPage(`document.querySelector('#subject')?.textContent === 'Alerte banale'`)), true);
     assert.equal(await tab.eval(`!document.querySelector('#reveal').hidden && document.querySelector('#reveal').textContent.includes('invitation')`), true);
@@ -115,6 +126,7 @@ test('étiquetage à l aveugle : Entrée enregistre, JEV révélé après coup',
 
   const saved = JSON.parse(fs.readFileSync(path.join(root, 'data', 'jev-labels.json'), 'utf8'));
   assert.deepEqual(Object.keys(saved.labels), ['gmail-primary:rdv']);
-  assert.equal(saved.labels['gmail-primary:rdv'].answers.eventKind, 'information', 'valeur neutre par défaut, pas celle de JEV');
-  assert.equal(saved.labels['gmail-primary:rdv'].answers.needsReply, false);
+  assert.equal(saved.labels['gmail-primary:rdv'].answers.eventKind, 'information');
+  assert.equal(saved.labels['gmail-primary:rdv'].answers.needsReply, false, 'valeur neutre par défaut, pas celle de JEV');
+  assert.equal(saved.labels['gmail-primary:rdv'].edited, true);
 });
