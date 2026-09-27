@@ -9,6 +9,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { loadRedactTerms } from '../ingest/jev-body.mjs';
 
 const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const ROOT = process.env.MAILBOARD_ROOT ? path.resolve(process.env.MAILBOARD_ROOT) : PACKAGE_ROOT;
@@ -230,6 +231,9 @@ export function loadJev({ cliFlag = false, dry = false, root, profileRoot = root
     body: {
       send: raw.body?.send === true,
       maxChars: Number(raw.body?.maxChars ?? 1500),
+      clean: raw.body?.clean !== false,
+      // Termes masqués dans le corps : la liste locale d'expurgation du CV.
+      terms: raw.body?.send === true ? loadRedactTerms(profileRoot) : [],
     },
   };
 }

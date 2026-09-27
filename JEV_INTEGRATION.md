@@ -360,6 +360,41 @@ d'où les faux positifs de `needsReply` et `hasDeadline`. Ces deux questions
 demandent un seuil calibré sur davantage de « oui » avant tout usage. Coût
 observé : environ 2 700 tokens par appel avec profil et corps.
 
+### Nettoyage du corps envoyé
+
+[ingest/jev-body.mjs](ingest/jev-body.mjs) nettoie l'extrait avant envoi
+(`body.clean`, vrai par défaut ; `false` rejoue l'envoi brut pour comparer).
+Le corps stocké n'est jamais modifié. Retirés : liens, boutons (« Voir
+l'offre »), mentions légales, désabonnement, « ne pas répondre », adresses
+légales d'expéditeur, salutations, offres répétées dans un même mail, pied de
+page à partir de la seconde moitié du mail, et le bloc profil d'Indeed partout
+où il apparaît. Masqués : emails, téléphones, termes de
+`profile/redact.local.txt`. La limite `maxChars` s'applique après nettoyage.
+
+Sur les 196 corps (28/09/2026) : 21 % de l'extrait brut était du bruit ;
+l'extrait passe de 1 127 à 755 caractères en moyenne, les corps coupés par la
+limite de 95 à 3, et les identifiants personnels envoyés (nom, emails, salaire
+souhaité du bloc Indeed) de 254 à 0. Les lignes porteuses de mots métier
+retirées sont des boutons, des mentions légales ou des données personnelles.
+
+Sur les 55 mails relus, corps brut → corps nettoyé :
+
+| question | brut | nettoyé |
+|---|---|---|
+| needsReply (seuil 0,5) | 0 manqué, 14 faux positifs | 0 manqué, 7 faux positifs |
+| hasDeadline (seuil 0,5) | 12 faux positifs | 12 faux positifs |
+| eventKind | accord 95 % | accord 91 % |
+| isOffer, stackMatch | 0 et 1 manqués | 0 et 1 manqués |
+| roleFit | 96 % à moins d'un niveau | 94 % |
+| tokens (55 appels) | 150 607 | 144 864 |
+
+Le nettoyage divise par deux les fausses demandes de réponse, nées des boutons
+« Je finalise ma candidature » et des mentions « ne pas répondre ». Les écarts
+d'`eventKind` et `roleFit` (deux mails sur 55) restent dans la variation d'un
+appel à l'autre. L'économie de tokens est faible : le digest du CV et les
+questions pèsent plus que le corps. `hasDeadline` ne dépend pas du corps : sa
+formulation est à revoir.
+
 ## Critère d'arrêt
 
 Ne pas intégrer JEV au-delà du shadow mode si les décisions n'améliorent pas une

@@ -12,6 +12,7 @@
 //   - une panne du fournisseur devient un statut, jamais un run perdu.
 
 import fs from 'node:fs';
+import { cleanBody } from './jev-body.mjs';
 import { createHash } from 'node:crypto';
 
 /** Domaine de l'expéditeur — le local-part n'apprend rien au modèle. */
@@ -35,8 +36,17 @@ export function buildState(message, { body } = {}) {
   // Option `body.send` (config/jev.json), désactivée par défaut : un extrait du
   // corps part chez le fournisseur. L'objet seul trompe (« Des nouvelles de
   // votre candidature… » cache un refus), mais le contenu du mail quitte alors
-  // la machine. `bodyText` est posé par l'appelant, jamais persisté.
-  if (body?.send && message.bodyText) state.message.body = message.bodyText.slice(0, body.maxChars ?? 1500);
+  // la machine. `bodyText` est posé par l'appelant, jamais persisté. Le corps
+  // est nettoyé d'abord (jev-body.mjs) : sans gabarits ni identifiants, et la
+  // limite de taille s'applique au contenu, pas aux pieds de page.
+  if (body?.send && message.bodyText) {
+    // `clean: false` rejoue l'ancien envoi brut, pour mesurer l'effet du nettoyage.
+    const clean =
+      body.clean === false
+        ? message.bodyText.slice(0, body.maxChars ?? 1500)
+        : cleanBody(message.bodyText, { maxChars: body.maxChars ?? 1500, terms: body.terms ?? [] });
+    if (clean) state.message.body = clean;
+  }
   return state;
 }
 
