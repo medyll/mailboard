@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.7] - 2026-09-27
+**Features:**
+- clean the body excerpt before sending it to JEV
+
+**Chores:**
+- sync npm lockfile [skip ci]
+
+
+
 ## [0.1.6] - 2026-09-27
 **Features:**
 - scheduled task reviews 10 JEV decisions per pass
