@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.2] - 2026-09-27
+**Features:**
+- translate dashboard, settings, labeling, CLI and MCP texts to English
+
+**Documentation:**
+- translate main documentation to English and realign with package
+
+**Chores:**
+- sync npm lockfile [skip ci]
+
+
+
 ## [0.1.1] - 2026-09-27
 **Features:**
 - add release workflow and configuration for automated npm publishing
