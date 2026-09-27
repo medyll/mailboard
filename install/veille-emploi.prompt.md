@@ -64,7 +64,7 @@ Un message introuvable ou sans corps est simplement omis. Ne rien écrire si `it
 
 ## 4. Cycle
 
-Lancer `node orchestrator/run-cycle.mjs`. Il collecte les autres canaux (Proton via Edge), ingère une seule fois et décide de la notification. Il peut prendre plusieurs minutes ; ne pas l'interrompre.
+Lancer, depuis le shell Bash : `MAILBOARD_PWSH=pwsh node orchestrator/run-cycle.mjs`. La variable fait passer Proton par `collectors/browser-mail/run.ps1`, qui démarre l'Edge dédié s'il est fermé et le referme ensuite. L'orchestrateur collecte les autres canaux (Proton via Edge, navigation jev-ultrafast), ingère une seule fois et décide de la notification. Il peut prendre plusieurs minutes ; ne pas l'interrompre.
 
 ## 5. Réponse finale
 

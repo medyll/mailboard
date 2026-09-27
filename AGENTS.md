@@ -21,9 +21,11 @@ and an MCP server — see [README.md](README.md).
    `node ingest/missing-bodies.mjs --source gmail-primary --limit 20`, fetch
    each body, drop a `kind: "backfill"` run (see
    [ingest/schema.md](ingest/schema.md)).
-4. Then run `node orchestrator/run-cycle.mjs`. It collects the browser
-   channels, ingests once and writes a `mailboard.cycle.result` object as its
-   last line.
+4. Then run `node orchestrator/run-cycle.mjs` — on Windows,
+   `MAILBOARD_PWSH=pwsh node orchestrator/run-cycle.mjs`, so the dedicated Edge
+   is started if closed. It collects the browser channels (navigating with
+   `jev-ultrafast`), ingests once and writes a `mailboard.cycle.result` object
+   as its last line.
 5. Read that object. Notify **only** when `notify` is `true`, using the text in
    `message`. Duplicates trigger nothing: id-based deduplication is the source
    of truth, not the time window.

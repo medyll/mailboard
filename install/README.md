@@ -48,7 +48,9 @@ Sign in to Proton in the Edge window that opens, then close it. Details in
 [collectors/browser-mail/README.md](../collectors/browser-mail/README.md).
 
 For the orchestrator to go through this wrapper (and start/stop Edge itself),
-set `MAILBOARD_PWSH=pwsh` in the user environment. Without it, the orchestrator
+`MAILBOARD_PWSH=pwsh` must be set when it runs. The reference prompt sets it on
+the command line, so the scheduled task works with Edge closed; set it in the
+user environment too if you run the cycle by hand. Without it, the orchestrator
 uses the Node collector, which expects Edge to be already running with its CDP
 port open.
 

@@ -31,11 +31,11 @@ config/ (critères, canaux, préférences — tout déclaratif)
 
 ## Dette et risques
 
-- ~~**Pas d'orchestrateur**~~ — corrigé : `orchestrator/run-cycle.mjs` (états, reprise `--retry-failed`, run d'échec si un canal ne laisse rien, décision `notify`). Reste à le brancher sur la tâche planifiée et à l'éprouver avec Edge réel. Gmail reste collecté par l'agent (connecteur).
-- ~~**Corps quasi absents**~~ — en cours : la tâche planifiée récupère le corps des nouveaux mails Gmail et rattrape 20 anciens par passage (run `kind: "backfill"`, `ingest/missing-bodies.mjs`) ; `bodyCoverage` dans `mailboard.ingest.result` suit la progression. Constat initial : **corps quasi absents** (2/306) : le canal Proton en `list-only` ne les fournit pas ; seul Gmail peut combler. La recherche plein texte et l'expansion des mails, arguments centraux du dashboard, restent peu exploités.
+- ~~**Pas d'orchestrateur**~~ — corrigé : `orchestrator/run-cycle.mjs` (états, reprise `--retry-failed`, run d'échec si un canal ne laisse rien, décision `notify`). Branché sur la tâche planifiée locale et éprouvé en réel, Edge à froid compris (27/09/2026). Gmail reste collecté par l'agent (connecteur).
+- ~~**Corps quasi absents**~~ — largement corrigé (171/310 au 27/09/2026, Proton lu en `readMode: full`) : la tâche planifiée récupère le corps des nouveaux mails Gmail et rattrape 20 anciens par passage (run `kind: "backfill"`, `ingest/missing-bodies.mjs`) ; `bodyCoverage` dans `mailboard.ingest.result` suit la progression. Constat initial : **corps quasi absents** (2/306) : le canal Proton en `list-only` ne les fournit pas ; seul Gmail peut combler. La recherche plein texte et l'expansion des mails, arguments centraux du dashboard, restent peu exploités.
 - **JEV dormant** : shadow mode implémenté et testé, mais 302 `skipped`, aucune décision réelle persistée. Critère d'arrêt explicite dans `JEV_INTEGRATION.md` : ne pas aller plus loin sans boucle de mesure.
-- **Fragilité Edge/CDP** : profil dédié, flags (`--enable-automation`), port ouvert — maillon le plus cassant, sans preuve répétable à froid dans les conditions de la tâche planifiée.
-- Pas de test DOM du dashboard.
+- ~~**Fragilité Edge/CDP**~~ — corrigé le 27/09/2026 : cycle à froid prouvé deux fois (`MAILBOARD_PWSH=pwsh`, Edge démarré puis refermé par `run.ps1`, navigation jev-ultrafast). Constat initial : **fragilité Edge/CDP** : profil dédié, flags (`--enable-automation`), port ouvert — maillon le plus cassant, sans preuve répétable à froid dans les conditions de la tâche planifiée.
+- ~~Pas de test DOM du dashboard~~ — `dashboard/dashboard.test.mjs` (Edge sans fenêtre, file://).
 - ~~Pas de CI, pas de test e2e d'ingestion~~ — corrigé : le test e2e v1/v2 existait déjà ; ajout d'un test de reprise (corps tardif, run rejoué, run illisible, `--dry`) et d'une CI Linux + Windows (`.github/workflows/test.yml`). 44/44.
 - ~~`ARCHITECTURE.md` affirme « pas de dépôt Git initialisé »~~ — corrigé.
 

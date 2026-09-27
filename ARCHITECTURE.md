@@ -282,22 +282,26 @@ Le contrôle `collect.mjs --check` a correctement retourné `needs_user`, mais l
 port CDP n'était pas actif. Une tâche planifiée peut donc manquer Proton tant que
 le démarrage Edge et l'autorisation de débogage ne sont pas stabilisés.
 
-### Orchestrateur écrit, pas encore éprouvé en réel
+### Cycle complet éprouvé en réel (27/09/2026)
 
-[orchestrator/run-cycle.mjs](orchestrator/run-cycle.mjs) tient le cycle :
-canaux browser en série, run d'échec quand un canal n'a rien laissé, ingestion
-unique, décision de notification, état dans `data/cycle-state.json` et reprise
-par `--retry-failed`. La collecte Gmail reste portée par l'agent (connecteur)
-avant l'appel. Il est testé avec un collecteur simulé ; aucun cycle réel avec
-Edge n'a encore tourné dans la tâche planifiée.
+[orchestrator/run-cycle.mjs](orchestrator/run-cycle.mjs) tient le cycle et la
+tâche planifiée locale « Veille emploi — mailboard » l'appelle après la collecte
+Gmail (prompt de référence : [install/veille-emploi.prompt.md](install/veille-emploi.prompt.md)).
+Proton est navigué par jev-ultrafast par défaut, avec repli sur la voie directe
+si JEV est indisponible. En `readMode: full`, les corps Proton sont lus par URL
+et les anciens rattrapés : couverture des corps passée de 2/306 à 171/310.
 
-### Le dashboard n'a pas de test DOM
+Preuve Edge à froid, dans les conditions de la tâche : Edge dédié fermé,
+`MAILBOARD_PWSH=pwsh node orchestrator/run-cycle.mjs` démarre Edge via
+`run.ps1`, JEV atteint la boîte (3 actions), le run est `ok` et Edge est
+refermé — deux passages consécutifs. Sans `MAILBOARD_PWSH`, le canal finit en
+`needs_user` tracé dans son run, jamais en silence.
 
-Les 49 tests couvrent aussi l'orchestrateur. Les 44 tests d'avant couvrent Proton, l'adaptateur JEV, l'éditeur de settings et
-l'ingestion de bout en bout (runs v1/v2, identifiants partagés entre canaux,
-corps tardif, run rejoué, run illisible, `--dry`). Ils tournent en CI sur Linux
-et Windows (`.github/workflows/test.yml`). Le dashboard, lui, n'est vérifié
-qu'au niveau de ses projections.
+### Le dashboard a son test navigateur
+
+`dashboard/dashboard.test.mjs` ouvre la page en `file://` dans un Edge sans
+fenêtre : filtre de source, recherche dans les corps, expansion, état traité
+persistant après rechargement. Il est ignoré là où Edge est absent.
 
 ### JEV reste dormant
 
@@ -306,29 +310,20 @@ prématuré d'utiliser ses scores pour trier les notifications.
 
 ## Prochain ordre de travail
 
-### 1. Stabiliser le cycle Edge
+### 1. Mesurer JEV métier
 
-Rendre le port CDP disponible après ouverture du profil attendu, puis exécuter
-`collect.mjs --check` dans les mêmes conditions que la tâche planifiée. Le but
-est d'obtenir une preuve répétable, pas seulement un essai interactif.
+Comparer les décisions JEV au jugement humain sur un lot réel avant tout usage
+dans l'affichage ou les notifications (voir [JEV_INTEGRATION.md](JEV_INTEGRATION.md)).
 
-### 2. Lancer le shadow mode JEV métier
+### 2. Couvrir les corps restants
 
-Activer JEV sur un petit lot réel sans changer l'ordre d'affichage ni les
-notifications. Conserver probabilités, latence, tokens, modèle et statut, puis
-comparer les décisions à un jugement humain.
+Les corps manquants se rattrapent à chaque passage (Gmail par l'agent, Proton
+par le collecteur). Les identités par empreinte (`fp-…`) n'ont pas d'URL et
+restent sans corps.
 
-### 3. Brancher l'orchestrateur sur la tâche planifiée
+### 3. Autres fournisseurs
 
-Remplacer l'appel direct à l'ingesteur par `node orchestrator/run-cycle.mjs`
-et notifier depuis `mailboard.cycle.result`. Vérifier un cycle réel, puis un
-cycle avec Edge volontairement fermé.
-
-### 4. Tester le dashboard
-
-Un test navigateur court suffit au départ : ouverture en `file://`, nombre
-de messages, filtre de source, recherche, expansion d'un corps et persistance de
-l'état traité.
+Le contrat de run v2 est prêt pour Gmail navigateur, Outlook ou RSS.
 
 ## Décision d'architecture à conserver
 
