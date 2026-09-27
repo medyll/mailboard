@@ -26,6 +26,11 @@ and an MCP server — see [README.md](README.md).
    is started if closed. It collects the browser channels (navigating with
    `jev-ultrafast`), ingests once and writes a `mailboard.cycle.result` object
    as its last line.
+4b. Review JEV blind, 5 mails ordered `uncertain` then 5 `recent`:
+   `node ingest/jev-review.mjs --limit 5 --order uncertain`, answer from the
+   mail alone (profile digest and preferences for fit questions), save with
+   `node ingest/jev-review.mjs --save -`. Labels go to
+   `data/jev-labels.claude.json`, never into the human labels.
 5. Read that object. Notify **only** when `notify` is `true`, using the text in
    `message`. Duplicates trigger nothing: id-based deduplication is the source
    of truth, not the time window.

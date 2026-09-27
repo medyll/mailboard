@@ -66,9 +66,21 @@ Un message introuvable ou sans corps est simplement omis. Ne rien écrire si `it
 
 Lancer, depuis le shell Bash : `MAILBOARD_PWSH=pwsh node orchestrator/run-cycle.mjs`. La variable fait passer Proton par `collectors/browser-mail/run.ps1`, qui démarre l'Edge dédié s'il est fermé et le referme ensuite. L'orchestrateur collecte les autres canaux (Proton via Edge, navigation jev-ultrafast), ingère une seule fois et décide de la notification. Il peut prendre plusieurs minutes ; ne pas l'interrompre.
 
+## 4 bis. Relecture JEV
+
+Mesure continue de JEV contre la lecture du corps (voir `JEV_INTEGRATION.md`, « Relecture outillée »). Deux lots de 5 : d'abord `node ingest/jev-review.mjs --limit 5 --order uncertain`, puis, une fois le premier enregistré, `node ingest/jev-review.mjs --limit 5 --order recent`.
+
+Pour chaque lot :
+- La sortie est une ligne JSON : `questions` (identifiant, type, texte, options ou niveaux) et `items` (mails avec leur corps). Les réponses de JEV n'y sont pas, volontairement : ne pas les chercher ailleurs.
+- Pour les questions marquées `requiresProfile`, lire `profile/profile.jev.md` (digest expurgé du CV) et `config/preferences.json` (technologies souhaitées ou à éviter).
+- Répondre depuis le mail seul : `noul` → `true`/`false`, `choice` → une clé de `options`, `score` → un entier de 0 au dernier niveau, `null` si la question est sans objet ou indécidable.
+- Enregistrer en passant le JSON sur l'entrée standard : `node ingest/jev-review.mjs --save -` avec `{"model": "<ton modèle>", "labels": [{"key": "<key>", "answers": {…}}]}`.
+
+Si `items` est vide, passer. Une erreur de relecture n'empêche pas la réponse finale ; elle ne se mentionne que si elle se répète.
+
 ## 5. Réponse finale
 
-Lire la dernière ligne de sortie : un objet JSON `mailboard.cycle.result`.
+Reprendre la dernière ligne de sortie de l'étape 4 : un objet JSON `mailboard.cycle.result`.
 
 - `notify` vaut `true` : commencer par « Du nouveau : » suivi de `message`, puis une ligne par nouveau mail Gmail (expéditeur — objet — l'essentiel), groupées par catégorie.
 - `notify` vaut `false` : répondre « Rien de nouveau. », plus une ligne listant les canaux en échec s'il y en a.
