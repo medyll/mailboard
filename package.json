@@ -1,0 +1,27 @@
+{
+  "name": "@medyll/jobmailboard",
+  "version": "0.1.0",
+  "description": "Local job-mail tracking with JSONL storage, CLI, static dashboard and MCP server",
+  "type": "module",
+  "author": "Meddy Lebrun",
+  "repository": { "type": "git", "url": "git+https://github.com/medyll/mailboard.git" },
+  "bugs": { "url": "https://github.com/medyll/mailboard/issues" },
+  "homepage": "https://github.com/medyll/mailboard#readme",
+  "license": "UNLICENSED",
+  "bin": { "jobmailboard": "bin/jobmailboard.js" },
+  "files": ["bin/", "dist/", "ingest/schema.md", "config/README.md", "collectors/browser-mail/README.md"],
+  "exports": { ".": { "types": "./dist/src/index.d.ts", "import": "./dist/src/index.js" } },
+  "engines": { "node": ">=22.22.2" },
+  "publishConfig": { "access": "public" },
+  "keywords": ["jobs", "mail", "dashboard", "cli", "mcp", "jsonl"],
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit",
+    "dev": "node scripts/build.mjs && node bin/jobmailboard.js",
+    "test": "node scripts/test.mjs",
+    "smoke": "node scripts/smoke-package.mjs",
+    "prepack": "node scripts/build.mjs"
+  },
+  "dependencies": { "@modelcontextprotocol/server": "^2.1.0", "zod": "^4.0.0" },
+  "devDependencies": { "@modelcontextprotocol/client": "^2.1.0", "@types/node": "^22.0.0", "typescript": "^6.0.0" }
+}

@@ -10,10 +10,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+export const ROOT = process.env.MAILBOARD_ROOT ? path.resolve(process.env.MAILBOARD_ROOT) : PACKAGE_ROOT;
 export const CONFIG_DIR = process.env.MAILBOARD_CONFIG_DIR
   ? path.resolve(ROOT, process.env.MAILBOARD_CONFIG_DIR)
-  : path.join(ROOT, 'config');
+  : path.join(PACKAGE_ROOT, 'config');
 
 const resolvePath = (envVar, fallback) =>
   process.env[envVar] ? path.resolve(ROOT, process.env[envVar]) : path.join(CONFIG_DIR, fallback);
@@ -25,6 +26,19 @@ export const PATHS = {
   jev: resolvePath('MAILBOARD_JEV_CONFIG', 'jev.json'),
   preferences: resolvePath('MAILBOARD_PREFERENCES', 'preferences.json'),
 };
+
+function pathsFor(root) {
+  if (!root) return PATHS;
+  const dir = process.env.MAILBOARD_CONFIG_DIR
+    ? path.resolve(root, process.env.MAILBOARD_CONFIG_DIR) : path.join(root, 'config');
+  const at = (env, file) => process.env[env] ? path.resolve(root, process.env[env]) : path.join(dir, file);
+  return {
+    criteria: at('MAILBOARD_CRITERIA', 'criteria.json'),
+    channels: at('MAILBOARD_CHANNELS', 'channels.local.json'),
+    jev: at('MAILBOARD_JEV_CONFIG', 'jev.json'),
+    preferences: at('MAILBOARD_PREFERENCES', 'preferences.json'),
+  };
+}
 
 function readJson(file, { optional = false } = {}) {
   if (!fs.existsSync(file)) {
@@ -74,8 +88,8 @@ function stripComments(value) {
 }
 
 /** Critères de tri : catégories du dashboard, alias historiques, requêtes par fournisseur. */
-export function loadCriteria() {
-  const raw = stripComments(readJson(PATHS.criteria));
+export function loadCriteria({ root } = {}) {
+  const raw = stripComments(readJson(pathsFor(root).criteria));
   const enabled = (raw.criteria ?? []).filter((c) => c.enabled !== false);
   const fallback = raw.fallback ?? { id: 'autre', label: 'Autre' };
 
@@ -143,8 +157,9 @@ export function loadCriteria() {
  * Registre des canaux. channels.local.json est optionnel : sans lui, seule la
  * collecte Gmail historique tourne, et l'exemple sert de documentation.
  */
-export function loadChannels({ includeDisabled = false } = {}) {
-  const file = fs.existsSync(PATHS.channels) ? PATHS.channels : null;
+export function loadChannels({ includeDisabled = false, root } = {}) {
+  const paths = pathsFor(root);
+  const file = fs.existsSync(paths.channels) ? paths.channels : null;
   const raw = file ? stripComments(readJson(file)) : { channels: [], defaults: {} };
   const defaults = raw.defaults ?? {};
 
@@ -169,8 +184,8 @@ export function loadChannels({ includeDisabled = false } = {}) {
  * Configuration JEV. `enabled` vient du fichier, puis de MAILBOARD_JEV, puis du
  * flag CLI : le plus explicite gagne. `dry` coupe tout, sans condition.
  */
-export function loadJev({ cliFlag = false, dry = false } = {}) {
-  const raw = stripComments(readJson(PATHS.jev, { optional: true })) ?? { enabled: false, questions: [] };
+export function loadJev({ cliFlag = false, dry = false, root, profileRoot = root ?? ROOT } = {}) {
+  const raw = stripComments(readJson(pathsFor(root).jev, { optional: true })) ?? { enabled: false, questions: [] };
   const fromEnv = process.env.MAILBOARD_JEV;
   const wanted = cliFlag || (fromEnv !== undefined ? fromEnv === '1' || fromEnv === 'true' : Boolean(raw.enabled));
 
@@ -178,8 +193,8 @@ export function loadJev({ cliFlag = false, dry = false } = {}) {
   const model = process.env.MAILBOARD_JEV_MODEL ?? raw.model ?? 'jev-latest';
 
   const profileFile = process.env.MAILBOARD_PROFILE
-    ? path.resolve(ROOT, process.env.MAILBOARD_PROFILE)
-    : path.join(ROOT, raw.profile?.file ?? 'profile/profile.jev.md');
+    ? path.resolve(profileRoot, process.env.MAILBOARD_PROFILE)
+    : path.join(profileRoot, raw.profile?.file ?? 'profile/profile.jev.md');
   const hasProfile = fs.existsSync(profileFile);
   const sendProfile = Boolean(raw.profile?.send) && hasProfile;
 
@@ -222,8 +237,8 @@ export function loadJev({ cliFlag = false, dry = false } = {}) {
  * à l'humain, et une préférence mal formulée ne doit pas faire disparaître une
  * opportunité en silence.
  */
-export function loadPreferences() {
-  const raw = stripComments(readJson(PATHS.preferences, { optional: true })) ?? { preferences: [] };
+export function loadPreferences({ root } = {}) {
+  const raw = stripComments(readJson(pathsFor(root).preferences, { optional: true })) ?? { preferences: [] };
   const entries = (raw.preferences ?? []).filter((p) => p.enabled !== false);
   const weights = { blocker: 4, strong: 2, mild: 1, ...(raw.weights ?? {}) };
 

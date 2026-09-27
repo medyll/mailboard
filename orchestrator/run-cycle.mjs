@@ -20,10 +20,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadChannels } from '../config/load.mjs';
+import { ingestRuns } from '../src/core/services/ingestion.mjs';
 
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const COLLECTOR_DIR = path.join(PROJECT_ROOT, 'collectors', 'browser-mail');
-const INGEST = path.join(PROJECT_ROOT, 'ingest', 'ingest.mjs');
 
 // Une boîte bloquée sur un écran de connexion ne doit pas geler le cycle.
 const CHANNEL_TIMEOUT_MS = Number(process.env.MAILBOARD_CHANNEL_TIMEOUT_MS ?? 0) || 5 * 60_000;
@@ -33,7 +33,12 @@ const stamp = (d) =>
 
 const tail = (text, lines = 3) => text.trim().split('\n').slice(-lines).join(' | ').slice(0, 500);
 
-/** Lance une commande et rend { code, stdout, stderr, timedOut }, sans jamais rejeter. */
+/**
+ * Lance une commande et rend { code, stdout, stderr, timedOut }, sans jamais rejeter.
+ * @param {string} command
+ * @param {string[]} args
+ * @param {{cwd?: string, env?: NodeJS.ProcessEnv, timeoutMs?: number}} options
+ */
 export function run(command, args, { cwd = PROJECT_ROOT, env = process.env, timeoutMs } = {}) {
   return new Promise((resolve) => {
     let stdout = '';
@@ -63,24 +68,30 @@ export function run(command, args, { cwd = PROJECT_ROOT, env = process.env, time
 }
 
 /**
- * Collecteur browser par défaut. Sous Windows, run.ps1 prépare Edge et son port
- * CDP ; ailleurs, le collecteur Node est appelé directement.
+ * Collecteur Node portable. MAILBOARD_PWSH active le wrapper Windows optionnel
+ * qui prépare Edge et son port CDP.
  */
-export function defaultCollector(channel) {
+export function defaultCollector(channel, root = process.env.MAILBOARD_ROOT ?? PROJECT_ROOT) {
   const [command, args] =
-    process.platform === 'win32'
+    process.platform === 'win32' && process.env.MAILBOARD_PWSH
       ? [
           process.env.MAILBOARD_PWSH ?? 'pwsh',
           ['-NoProfile', '-File', path.join(COLLECTOR_DIR, 'run.ps1'), '--source', channel.sourceId],
         ]
       : [process.execPath, [path.join(COLLECTOR_DIR, 'collect.mjs'), '--source', channel.sourceId]];
-  return run(command, args, { timeoutMs: CHANNEL_TIMEOUT_MS });
+  return run(command, args, {
+    env: { ...process.env, MAILBOARD_ROOT: root, MAILBOARD_CONFIG_DIR: process.env.MAILBOARD_CONFIG_DIR ?? path.join(root, 'config') },
+    timeoutMs: CHANNEL_TIMEOUT_MS,
+  });
 }
 
-export function defaultIngest(root) {
-  return run(process.execPath, [INGEST, '--json'], {
-    env: { ...process.env, MAILBOARD_ROOT: root },
-  });
+export async function defaultIngest(root, configRoot, logger = console) {
+  try {
+    const result = await ingestRuns({ root, configRoot, logger });
+    return { code: 0, stdout: JSON.stringify(result), stderr: '', timedOut: false };
+  } catch (error) {
+    return { code: 1, stdout: '', stderr: error.message, timedOut: false };
+  }
 }
 
 /** Runs présents dans l'inbox, indexés par nom de fichier → sourceId annoncé. */
@@ -145,12 +156,14 @@ function writeState(file, state) {
 /**
  * Exécute un cycle. Toutes les dépendances sont injectables : les tests
  * remplacent le collecteur, jamais l'ingesteur.
+ * @param {{root?: string, configRoot?: string, channels?: ReturnType<typeof loadChannels>['channels'], collector?: typeof defaultCollector, ingest?: typeof defaultIngest, retryFailed?: boolean, skipCollect?: boolean, now?: () => Date, log?: (...values: unknown[]) => void}} options
  */
 export async function runCycle({
   root = process.env.MAILBOARD_ROOT ? path.resolve(process.env.MAILBOARD_ROOT) : PROJECT_ROOT,
-  channels = loadChannels().channels,
-  collector = defaultCollector,
-  ingest = defaultIngest,
+  configRoot,
+  channels = loadChannels({ root: configRoot }).channels,
+  collector = channel => defaultCollector(channel, root),
+  ingest = target => defaultIngest(target, configRoot, { log, warn: log, error: log }),
   retryFailed = false,
   skipCollect = false,
   now = () => new Date(),

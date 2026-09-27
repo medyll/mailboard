@@ -19,8 +19,8 @@ export function readLabels(root) {
 }
 
 /** Questions telles que la page d'étiquetage doit les poser. */
-export function labelQuestions() {
-  const jev = loadJev({ dry: true });
+export function labelQuestions(root) {
+  const jev = loadJev({ dry: true, root });
   return {
     questionSet: jev.questionSet,
     questions: (jev.raw.questions ?? [])
@@ -66,7 +66,7 @@ export function validateLabel(answers, questions) {
 /** Écrit ou retire une étiquette. Écriture atomique : un fichier à moitié écrit perdrait tout le travail. */
 export function saveLabel(root, { key, answers, edited }) {
   if (typeof key !== 'string' || !key.includes(':')) return { ok: false, status: 422, errors: ['key invalide'] };
-  const { questionSet, questions } = labelQuestions();
+  const { questionSet, questions } = labelQuestions(fs.existsSync(path.join(root, 'config', 'jev.json')) ? root : undefined);
   const store = readLabels(root);
 
   if (answers === null) {

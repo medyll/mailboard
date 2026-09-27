@@ -132,7 +132,8 @@ async function paliereA(channel) {
  * lisent la page une fois arrivée. Le modèle ne lit jamais la liste pour nous.
  */
 function navigateWithJev({ channel, provider, probes, port }) {
-  const driver = path.join(ROOT, 'collectors', 'browser-mail', 'jev_driver.py');
+  const collectorDir = path.dirname(fileURLToPath(import.meta.url));
+  const driver = path.join(collectorDir, 'jev_driver.py');
   const request = {
     cdpUrl: `http://127.0.0.1:${port}`,
     url: provider.INBOX_URL,
@@ -145,7 +146,7 @@ function navigateWithJev({ channel, provider, probes, port }) {
 
   const res = spawnSync(
     'uv',
-    ['run', '--project', path.join(ROOT, 'collectors', 'browser-mail'), 'python', driver],
+    ['run', '--project', collectorDir, 'python', driver],
     { input: JSON.stringify(request), encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 },
   );
 

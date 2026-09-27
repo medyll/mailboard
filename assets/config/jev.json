@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "enabled": false,
+  "questionSet": "mailboard-v1",
+  "endpoint": "https://api.typesafe.ai/v1/systemone",
+  "model": "jev-latest",
+  "apiKeyEnv": "TYPESAFE_API_KEY",
+  "timeoutMs": 8000,
+  "concurrency": 4,
+  "retriesPerRun": 0,
+  "profile": { "send": false, "file": "profile/profile.jev.md", "maxChars": 4000 },
+  "questions": [
+    { "id": "needsReply", "primitive": "noul", "text": "Le message demande-t-il explicitement une réponse ou une action du destinataire ?", "usage": "badge et priorité" },
+    { "id": "hasDeadline", "primitive": "noul", "text": "Le message mentionne-t-il une échéance ou une action limitée dans le temps ?", "usage": "hausse de priorité" },
+    { "id": "eventKind", "primitive": "choice", "text": "Quel événement principal le message décrit-il ?", "options": {
+      "acknowledgement": "Accusé de réception ou confirmation automatique",
+      "request": "Demande d'information, de document ou d'action",
+      "invitation": "Entretien, appel ou rendez-vous proposé",
+      "decision_positive": "Suite favorable ou progression de la candidature",
+      "decision_negative": "Refus ou clôture défavorable",
+      "administrative": "Actualisation, justificatif, démarche ou rappel administratif",
+      "information": "Information utile ne demandant pas d'action explicite",
+      "other": "Aucun cas précédent ne convient clairement"
+    }, "usage": "regroupement visuel" },
+    { "id": "attention", "primitive": "score", "text": "Quel niveau d'attention opérationnelle ce message exige-t-il ?", "levels": ["information sans action attendue", "action utile mais différable", "action à effectuer prochainement", "action explicite ou échéance proche"], "usage": "tri, jamais suppression" },
+    { "id": "isOffer", "primitive": "noul", "text": "Le message décrit-il une offre ou une proposition de poste concrète ?", "usage": "conditionne les questions de fit" },
+    { "id": "stackMatch", "primitive": "noul", "text": "Les langages, frameworks et technologies cités recoupent-ils ceux du profil fourni ?", "usage": "signale un poste hors stack", "requiresProfile": true },
+    { "id": "roleFit", "primitive": "score", "text": "Dans quelle mesure le poste correspond-il au profil fourni et aux préférences déclarées ?", "levels": ["sans rapport avec le profil", "rapport lointain", "correspondance partielle", "correspondance nette"], "usage": "tri des offres, jamais suppression", "requiresProfile": true }
+  ],
+  "thresholds": { "needsReply": null, "hasDeadline": null, "eventKindConfidence": null, "roleFit": null }
+}

@@ -1,11 +1,11 @@
 import { randomBytes } from 'node:crypto';
-import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { prepareSettings, readSettings, serializeSettings, validateSettings } from './config.mjs';
 import { labelQuestions, readLabels, saveLabel } from '../ingest/jev-labels.mjs';
+import { ingestRuns } from '../src/core/services/ingestion.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const MIME = {
@@ -36,16 +36,7 @@ const readBody = async (request) => {
   return JSON.parse(Buffer.concat(chunks).toString('utf8'));
 };
 
-const runRebuild = (root) => {
-  const result = spawnSync(process.execPath, [path.join(root, 'ingest', 'ingest.mjs'), '--rebuild'], {
-    cwd: root,
-    encoding: 'utf8',
-    timeout: 120_000,
-  });
-  if (result.error) throw result.error;
-  if (result.status !== 0) throw new Error(result.stderr.trim() || result.stdout.trim() || 'Le rebuild a échoué.');
-  return result.stdout.trim();
-};
+const runRebuild = root => ingestRuns({ root, configRoot: root, rebuildOnly: true });
 
 export async function saveSettings(root, settings, rebuild = () => runRebuild(root)) {
   const errors = validateSettings(settings);
@@ -84,6 +75,7 @@ export async function saveSettings(root, settings, rebuild = () => runRebuild(ro
   }
 }
 
+/** @param {{root?: string, host?: string, port?: number, rebuild?: () => unknown | Promise<unknown>}} options */
 export async function createSettingsServer({ root = ROOT, host = '127.0.0.1', port = 0, rebuild } = {}) {
   const token = randomBytes(24).toString('base64url');
   const dashboard = path.join(root, 'dashboard');
@@ -119,7 +111,8 @@ export async function createSettingsServer({ root = ROOT, host = '127.0.0.1', po
         }
         // Étiquetage JEV : questions posées + étiquettes déjà saisies, écriture une à une.
         if (request.method === 'GET' && url.pathname === '/api/labels') {
-          return json(response, 200, { ...labelQuestions(), labels: readLabels(root).labels });
+          const configRoot = fs.existsSync(path.join(root, 'config', 'jev.json')) ? root : undefined;
+          return json(response, 200, { ...labelQuestions(configRoot), labels: readLabels(root).labels });
         }
         if (request.method === 'PUT' && url.pathname === '/api/labels') {
           const result = saveLabel(root, await readBody(request));

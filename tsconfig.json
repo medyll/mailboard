@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "rootDir": ".",
+    "outDir": "dist",
+    "strict": true,
+    "allowJs": true,
+    "checkJs": false,
+    "declaration": true,
+    "types": ["node"],
+    "skipLibCheck": true
+  },
+  "include": ["src/**/*", "config/load.mjs", "ingest/jev.mjs", "ingest/jev-labels.mjs", "settings/*.mjs", "orchestrator/run-cycle.mjs", "collectors/browser-mail/**/*.mjs"],
+  "exclude": ["**/*.test.mjs", "node_modules", "dist"]
+}

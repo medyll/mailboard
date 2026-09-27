@@ -24,6 +24,9 @@ venv/
 
 # Node, si un package.json apparaît un jour
 node_modules/
+dist/
+*.tgz
+.tooling/
 
 # Traces navigateur : jamais de DOM brut ni de capture par défaut
 collectors/**/traces/
