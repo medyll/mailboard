@@ -9,16 +9,16 @@
   const reloadButton = document.getElementById('settings-reload');
   const cancelButton = document.getElementById('settings-cancel');
   const tabs = [
-    ['criteria', 'Collecte'],
-    ['preferences', 'Préférences'],
+    ['criteria', 'Collection'],
+    ['preferences', 'Preferences'],
     ['jev', 'JEV'],
-    ['system', 'Système'],
+    ['system', 'System'],
   ];
   const view = { tab: 'criteria', settings: null, original: null, dirty: false, errors: [], timer: null };
 
   if (!runtime.enabled) {
     openButton.dataset.readonly = 'true';
-    openButton.title = 'Lancer `node settings/server.mjs`, puis ouvrir l’adresse affichée.';
+    openButton.title = 'Run `node settings/server.mjs`, then open the printed address.';
   }
 
   const clone = (value) => structuredClone(value);
@@ -59,7 +59,7 @@
       },
     });
     const payload = await response.json();
-    if (!response.ok && response.status !== 422) throw new Error(payload.error ?? 'Le service de réglages ne répond pas.');
+    if (!response.ok && response.status !== 422) throw new Error(payload.error ?? 'The settings service is not responding.');
     return { response, payload };
   };
 
@@ -100,9 +100,9 @@
 
   const cardActions = (kind, index, length) => `
     <div class="settings-card-actions">
-      <button type="button" data-move="${kind}" data-index="${index}" data-direction="-1" ${index === 0 ? 'disabled' : ''} aria-label="Monter">↑</button>
-      <button type="button" data-move="${kind}" data-index="${index}" data-direction="1" ${index === length - 1 ? 'disabled' : ''} aria-label="Descendre">↓</button>
-      <button class="settings-delete" type="button" data-remove="${kind}" data-index="${index}">Supprimer</button>
+      <button type="button" data-move="${kind}" data-index="${index}" data-direction="-1" ${index === 0 ? 'disabled' : ''} aria-label="Move up">↑</button>
+      <button type="button" data-move="${kind}" data-index="${index}" data-direction="1" ${index === length - 1 ? 'disabled' : ''} aria-label="Move down">↓</button>
+      <button class="settings-delete" type="button" data-remove="${kind}" data-index="${index}">Delete</button>
     </div>`;
 
   function renderCriteria() {
@@ -111,33 +111,33 @@
       .map((criterion, index) => {
         const base = `criteria.criteria.${index}`;
         return `<settings-card>
-          <settings-card-header><strong>${escapeHtml(criterion.label || criterion.id || 'Nouveau critère')}</strong>${cardActions('criterion', index, config.criteria.length)}</settings-card-header>
+          <settings-card-header><strong>${escapeHtml(criterion.label || criterion.id || 'New criterion')}</strong>${cardActions('criterion', index, config.criteria.length)}</settings-card-header>
           <settings-fields>
-            ${field('Identifiant', input(`${base}.id`, criterion.id))}
-            ${field('Libellé', input(`${base}.label`, criterion.label))}
-            ${field('État', checkbox(`${base}.enabled`, criterion.enabled !== false, 'Critère activé'))}
-            ${field('Adéquation au profil', checkbox(`${base}.profileMatch`, Boolean(criterion.profileMatch), 'Évaluer le profil'))}
+            ${field('Identifier', input(`${base}.id`, criterion.id))}
+            ${field('Label', input(`${base}.label`, criterion.label))}
+            ${field('State', checkbox(`${base}.enabled`, criterion.enabled !== false, 'Criterion enabled'))}
+            ${field('Profile fit', checkbox(`${base}.profileMatch`, Boolean(criterion.profileMatch), 'Evaluate profile fit'))}
             ${field('Description', textarea(`${base}.description`, criterion.description ?? ''), true)}
-            ${field('Requête Gmail', textarea(`${base}.queries.gmail`, criterion.queries?.gmail ?? ''), true)}
-            ${field('Requête Proton', textarea(`${base}.queries.proton`, criterion.queries?.proton ?? ''), true)}
-            ${field('Mots-clés, un par ligne', textarea(`${base}.queries.keywords`, lines(criterion.queries?.keywords), 'lines'), true)}
-            ${field('Domaines expéditeurs, un par ligne', textarea(`${base}.queries.fromDomains`, lines(criterion.queries?.fromDomains), 'lines'), true)}
+            ${field('Gmail query', textarea(`${base}.queries.gmail`, criterion.queries?.gmail ?? ''), true)}
+            ${field('Proton query', textarea(`${base}.queries.proton`, criterion.queries?.proton ?? ''), true)}
+            ${field('Keywords, one per line', textarea(`${base}.queries.keywords`, lines(criterion.queries?.keywords), 'lines'), true)}
+            ${field('Sender domains, one per line', textarea(`${base}.queries.fromDomains`, lines(criterion.queries?.fromDomains), 'lines'), true)}
           </settings-fields>
         </settings-card>`;
       })
       .join('');
 
     return `<settings-section>
-      <h3>Collecte</h3>
-      <p>Définissez la fenêtre commune et les requêtes exécutées par chaque fournisseur.</p>
+      <h3>Collection</h3>
+      <p>Set the common window and the queries run by each provider.</p>
       ${errorSummary()}
       <settings-card><settings-fields>
-        ${field('Fenêtre de collecte (heures)', input('criteria.defaults.windowHours', config.defaults?.windowHours ?? 12, 'number', 'min="1" max="720"'))}
-        ${field('Catégorie de repli', input('criteria.fallback.label', config.fallback?.label ?? 'Autre'))}
+        ${field('Collection window (hours)', input('criteria.defaults.windowHours', config.defaults?.windowHours ?? 12, 'number', 'min="1" max="720"'))}
+        ${field('Fallback category', input('criteria.fallback.label', config.fallback?.label ?? 'Autre'))}
       </settings-fields></settings-card>
-      <div class="settings-section-head"><h4>Critères</h4><span class="hint">${config.criteria.length} configuré(s)</span></div>
+      <div class="settings-section-head"><h4>Criteria</h4><span class="hint">${config.criteria.length} configured</span></div>
       ${cards}
-      <button class="settings-add" type="button" data-add="criterion">+ Ajouter un critère</button>
+      <button class="settings-add" type="button" data-add="criterion">+ Add a criterion</button>
     </settings-section>`;
   }
 
@@ -147,31 +147,31 @@
       .map((preference, index) => {
         const base = `preferences.preferences.${index}`;
         return `<settings-card>
-          <settings-card-header><strong>${escapeHtml(preference.label || preference.id || 'Nouvelle préférence')}</strong>${cardActions('preference', index, config.preferences.length)}</settings-card-header>
+          <settings-card-header><strong>${escapeHtml(preference.label || preference.id || 'New preference')}</strong>${cardActions('preference', index, config.preferences.length)}</settings-card-header>
           <settings-fields>
-            ${field('Identifiant', input(`${base}.id`, preference.id))}
-            ${field('Libellé', input(`${base}.label`, preference.label))}
-            ${field('Effet', select(`${base}.kind`, preference.kind, [['pro', 'Pro'], ['con', 'Con']]))}
-            ${field('Force', select(`${base}.strength`, preference.strength, [['blocker', 'Rédhibitoire'], ['strong', 'Forte'], ['mild', 'Légère']]))}
-            ${field('État', checkbox(`${base}.enabled`, preference.enabled !== false, 'Préférence activée'))}
+            ${field('Identifier', input(`${base}.id`, preference.id))}
+            ${field('Label', input(`${base}.label`, preference.label))}
+            ${field('Effect', select(`${base}.kind`, preference.kind, [['pro', 'Pro'], ['con', 'Con']]))}
+            ${field('Strength', select(`${base}.strength`, preference.strength, [['blocker', 'Blocker'], ['strong', 'Strong'], ['mild', 'Mild']]))}
+            ${field('State', checkbox(`${base}.enabled`, preference.enabled !== false, 'Preference enabled'))}
             ${field('Note', textarea(`${base}.note`, preference.note ?? ''), true)}
-            ${field('Mots-clés, un par ligne', textarea(`${base}.match.keywords`, lines(preference.match?.keywords), 'lines'), true)}
+            ${field('Keywords, one per line', textarea(`${base}.match.keywords`, lines(preference.match?.keywords), 'lines'), true)}
           </settings-fields>
         </settings-card>`;
       })
       .join('');
     return `<settings-section>
-      <h3>Préférences</h3>
-      <p>Les pros attirent, les cons repoussent. Une préférence rédhibitoire signale l’offre sans la supprimer.</p>
+      <h3>Preferences</h3>
+      <p>Pros attract, cons repel. A blocker preference flags the offer without deleting it.</p>
       ${errorSummary()}
       <settings-card><settings-fields>
-        ${field('Poids rédhibitoire', input('preferences.weights.blocker', config.weights?.blocker ?? 4, 'number', 'min="0"'))}
-        ${field('Poids fort', input('preferences.weights.strong', config.weights?.strong ?? 2, 'number', 'min="0"'))}
-        ${field('Poids léger', input('preferences.weights.mild', config.weights?.mild ?? 1, 'number', 'min="0"'))}
+        ${field('Blocker weight', input('preferences.weights.blocker', config.weights?.blocker ?? 4, 'number', 'min="0"'))}
+        ${field('Strong weight', input('preferences.weights.strong', config.weights?.strong ?? 2, 'number', 'min="0"'))}
+        ${field('Mild weight', input('preferences.weights.mild', config.weights?.mild ?? 1, 'number', 'min="0"'))}
       </settings-fields></settings-card>
-      <div class="settings-section-head"><h4>Règles</h4><span class="hint">${config.preferences.length} configurée(s)</span></div>
+      <div class="settings-section-head"><h4>Rules</h4><span class="hint">${config.preferences.length} configured</span></div>
       ${cards}
-      <button class="settings-add" type="button" data-add="preference">+ Ajouter une préférence</button>
+      <button class="settings-add" type="button" data-add="preference">+ Add a preference</button>
     </settings-section>`;
   }
 
@@ -186,16 +186,16 @@
         const base = `jev.questions.${index}`;
         const specific =
           question.primitive === 'choice'
-            ? field('Options : clé = description', textarea(`${base}.options`, optionsText(question.options), 'options'), true)
+            ? field('Options: key = description', textarea(`${base}.options`, optionsText(question.options), 'options'), true)
             : question.primitive === 'score'
-              ? field('Niveaux, un par ligne', textarea(`${base}.levels`, lines(question.levels), 'lines'), true)
+              ? field('Levels, one per line', textarea(`${base}.levels`, lines(question.levels), 'lines'), true)
               : '';
         return `<settings-card>
-          <settings-card-header><strong>${escapeHtml(question.id || 'Nouvelle question')}</strong>${cardActions('question', index, config.questions.length)}</settings-card-header>
+          <settings-card-header><strong>${escapeHtml(question.id || 'New question')}</strong>${cardActions('question', index, config.questions.length)}</settings-card-header>
           <settings-fields>
-            ${field('État', checkbox(`${base}.enabled`, question.enabled !== false, 'Question activée'))}
-            ${field('Profil', checkbox(`${base}.requiresProfile`, Boolean(question.requiresProfile), 'Profil requis'))}
-            ${field('Identifiant', input(`${base}.id`, question.id))}
+            ${field('State', checkbox(`${base}.enabled`, question.enabled !== false, 'Question enabled'))}
+            ${field('Profile', checkbox(`${base}.requiresProfile`, Boolean(question.requiresProfile), 'Profile required'))}
+            ${field('Identifier', input(`${base}.id`, question.id))}
             ${field('Primitive', select(`${base}.primitive`, question.primitive, [['noul', 'noul'], ['choice', 'choice'], ['score', 'score']]))}
             ${field('Question', textarea(`${base}.text`, question.text ?? ''), true)}
             ${field('Usage', input(`${base}.usage`, question.usage ?? ''), true)}
@@ -206,39 +206,39 @@
       .join('');
     return `<settings-section>
       <h3>JEV</h3>
-      <p>Configurez l’appel métier et les objets envoyés au modèle. La clé API reste dans l’environnement.</p>
+      <p>Configure the business call and the objects sent to the model. The API key stays in the environment.</p>
       ${errorSummary()}
       <settings-card><settings-fields>
-        ${field('État', checkbox('jev.enabled', Boolean(config.enabled), 'Activer JEV'))}
-        ${field('Modèle', input('jev.model', config.model ?? 'jev-latest'))}
-        ${field('Jeu de questions', input('jev.questionSet', config.questionSet ?? 'mailboard-v1'))}
+        ${field('State', checkbox('jev.enabled', Boolean(config.enabled), 'Enable JEV'))}
+        ${field('Model', input('jev.model', config.model ?? 'jev-latest'))}
+        ${field('Question set', input('jev.questionSet', config.questionSet ?? 'mailboard-v1'))}
         ${field('Endpoint', input('jev.endpoint', config.endpoint ?? '', 'url'), true)}
         ${field('Timeout (ms)', input('jev.timeoutMs', config.timeoutMs ?? 8000, 'number', 'min="500" max="120000"'))}
-        ${field('Concurrence', input('jev.concurrency', config.concurrency ?? 4, 'number', 'min="1" max="20"'))}
-        ${field('Essais supplémentaires', input('jev.retriesPerRun', config.retriesPerRun ?? 0, 'number', 'min="0" max="5"'))}
-        ${field('Profil', checkbox('jev.profile.send', Boolean(config.profile?.send), 'Envoyer le profil expurgé'))}
-        ${field('Taille du profil', input('jev.profile.maxChars', config.profile?.maxChars ?? 4000, 'number', 'min="500"'))}
+        ${field('Concurrency', input('jev.concurrency', config.concurrency ?? 4, 'number', 'min="1" max="20"'))}
+        ${field('Extra retries', input('jev.retriesPerRun', config.retriesPerRun ?? 0, 'number', 'min="0" max="5"'))}
+        ${field('Profile', checkbox('jev.profile.send', Boolean(config.profile?.send), 'Send the redacted profile'))}
+        ${field('Profile size', input('jev.profile.maxChars', config.profile?.maxChars ?? 4000, 'number', 'min="500"'))}
       </settings-fields></settings-card>
-      <div class="settings-section-head"><h4>Seuils</h4><span class="hint">vide = non calibré</span></div>
+      <div class="settings-section-head"><h4>Thresholds</h4><span class="hint">empty = not calibrated</span></div>
       <settings-card><settings-fields>${thresholds}</settings-fields></settings-card>
-      <div class="settings-section-head"><h4>Questions JEV</h4><span class="hint">${config.questions.length} configurée(s)</span></div>
+      <div class="settings-section-head"><h4>JEV questions</h4><span class="hint">${config.questions.length} configured</span></div>
       ${cards}
-      <button class="settings-add" type="button" data-add="question">+ Ajouter une question</button>
+      <button class="settings-add" type="button" data-add="question">+ Add a question</button>
     </settings-section>`;
   }
 
   function renderSystem() {
     return `<settings-section>
-      <h3>Système</h3>
-      <p>Ce panneau n’expose ni clé API, ni CV source, ni registre local des comptes.</p>
+      <h3>System</h3>
+      <p>This panel exposes no API key, no source CV and no local account registry.</p>
       ${errorSummary()}
       <settings-card>
         <ul class="settings-system-list">
-          <li><code>config/criteria.json</code> : collecte et catégories</li>
-          <li><code>config/preferences.json</code> : envies et refus</li>
-          <li><code>config/jev.json</code> : modèle, questions et seuils</li>
-          <li>Chaque sauvegarde valide les objets, écrit les trois fichiers et lance <code>node ingest/ingest.mjs --rebuild</code>.</li>
-          <li>Si le rebuild échoue, les fichiers précédents sont restaurés.</li>
+          <li><code>config/criteria.json</code>: collection and categories</li>
+          <li><code>config/preferences.json</code>: wants and refusals</li>
+          <li><code>config/jev.json</code>: model, questions and thresholds</li>
+          <li>Each save validates the objects, writes the three files and runs <code>node ingest/ingest.mjs --rebuild</code>.</li>
+          <li>If the rebuild fails, the previous files are restored.</li>
         </ul>
       </settings-card>
     </settings-section>`;
@@ -246,7 +246,7 @@
 
   const renderContent = () => {
     if (!view.settings) {
-      content.innerHTML = '<p class="hint">Chargement des réglages…</p>';
+      content.innerHTML = '<p class="hint">Loading settings…</p>';
       return;
     }
     content.innerHTML =
@@ -263,7 +263,7 @@
     view.dirty = true;
     reloadButton.hidden = true;
     saveButton.disabled = true;
-    setStatus('Modifications non appliquées · validation…', 'dirty');
+    setStatus('Unsaved changes · validating…', 'dirty');
     clearTimeout(view.timer);
     view.timer = setTimeout(validate, 250);
   };
@@ -273,7 +273,7 @@
       const { payload } = await request('/api/settings/validate', { method: 'POST', body: JSON.stringify(view.settings) });
       view.errors = payload.errors ?? [];
       saveButton.disabled = view.errors.length > 0 || !view.dirty;
-      setStatus(view.errors.length ? `${view.errors.length} erreur(s) à corriger` : 'JSON valide · prêt à enregistrer', view.errors.length ? 'error' : 'valid');
+      setStatus(view.errors.length ? `${view.errors.length} error(s) to fix` : 'Valid JSON · ready to save', view.errors.length ? 'error' : 'valid');
     } catch (error) {
       saveButton.disabled = true;
       setStatus(error.message, 'error');
@@ -281,7 +281,7 @@
   };
 
   const load = async () => {
-    setStatus('Chargement…');
+    setStatus('Loading…');
     const { payload } = await request('/api/settings');
     view.settings = payload.settings;
     view.original = clone(payload.settings);
@@ -290,12 +290,12 @@
     saveButton.disabled = true;
     renderNav();
     renderContent();
-    setStatus('Aucune modification');
+    setStatus('No changes');
   };
 
   const open = async () => {
     if (!runtime.enabled) {
-      window.alert('Pour modifier les réglages, lancez `node settings/server.mjs`, puis ouvrez l’adresse affichée.');
+      window.alert('To edit settings, run `node settings/server.mjs`, then open the printed address.');
       return;
     }
     component.hidden = false;
@@ -311,7 +311,7 @@
   };
 
   const close = () => {
-    if (view.dirty && !window.confirm('Abandonner les modifications non enregistrées ?')) return;
+    if (view.dirty && !window.confirm('Discard unsaved changes?')) return;
     if (view.dirty) {
       view.settings = clone(view.original);
       view.dirty = false;
@@ -334,15 +334,15 @@
     if (kind === 'criterion') {
       const list = view.settings.criteria.criteria;
       list.push({
-        id: uniqueId('nouveau-critere', list), label: 'Nouveau critère', enabled: true, description: '', profileMatch: false,
+        id: uniqueId('new-criterion', list), label: 'New criterion', enabled: true, description: '', profileMatch: false,
         queries: { gmail: 'newer_than:{windowHours}h ', proton: '', keywords: [], fromDomains: [] },
       });
     } else if (kind === 'preference') {
       const list = view.settings.preferences.preferences;
-      list.push({ id: uniqueId('nouvelle-preference', list), kind: 'pro', strength: 'mild', label: 'Nouvelle préférence', note: '', match: { keywords: [] } });
+      list.push({ id: uniqueId('new-preference', list), kind: 'pro', strength: 'mild', label: 'New preference', note: '', match: { keywords: [] } });
     } else {
       const list = view.settings.jev.questions;
-      list.push({ id: `question${list.length + 1}`, enabled: true, primitive: 'noul', text: 'Nouvelle question', usage: 'À définir', requiresProfile: false });
+      list.push({ id: `question${list.length + 1}`, enabled: true, primitive: 'noul', text: 'New question', usage: 'To be defined', requiresProfile: false });
     }
     markDirty();
     renderContent();
@@ -371,8 +371,8 @@
     const control = event.target.closest('[data-bind$=".primitive"]');
     if (!control) return;
     const question = getAt(view.settings, control.dataset.bind.replace(/\.primitive$/, ''));
-    if (question.primitive === 'choice' && !question.options) question.options = { option_a: 'Première option', option_b: 'Deuxième option' };
-    if (question.primitive === 'score' && !question.levels) question.levels = ['niveau faible', 'niveau élevé'];
+    if (question.primitive === 'choice' && !question.options) question.options = { option_a: 'First option', option_b: 'Second option' };
+    if (question.primitive === 'score' && !question.levels) question.levels = ['low level', 'high level'];
     renderContent();
   });
 
@@ -413,12 +413,12 @@
   reloadButton.addEventListener('click', () => location.reload());
   saveButton.addEventListener('click', async () => {
     saveButton.disabled = true;
-    setStatus('Validation → écriture → rebuild…', 'dirty');
+    setStatus('Validate → write → rebuild…', 'dirty');
     try {
       const { payload } = await request('/api/settings', { method: 'PUT', body: JSON.stringify(view.settings) });
       if (!payload.ok) {
         view.errors = payload.errors ?? [];
-        setStatus(`${view.errors.length} erreur(s) · aucun fichier modifié`, 'error');
+        setStatus(`${view.errors.length} error(s) · no file changed`, 'error');
         renderContent();
         return;
       }
@@ -427,7 +427,7 @@
       view.dirty = false;
       view.errors = [];
       reloadButton.hidden = false;
-      setStatus('Enregistré · dashboard reconstruit', 'saved');
+      setStatus('Saved · dashboard rebuilt', 'saved');
       renderContent();
     } catch (error) {
       setStatus(error.message, 'error');

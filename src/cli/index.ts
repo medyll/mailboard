@@ -5,22 +5,22 @@ import { parseCli } from './commands/parse.js';
 const help = `@medyll/jobmailboard ${version}
 Usage: jobmailboard <command> [options]
 
-  init                  Préparer l’espace utilisateur
-  ingest [--dry --jev]   Ingérer les runs déposés dans data/runs-inbox
-  rebuild               Reconstruire le dashboard
-  cycle [--skip-collect --retry-failed]  Collecter, ingérer et décider de la notification
+  init                  Prepare the user workspace
+  ingest [--dry --jev]  Ingest runs dropped in data/runs-inbox
+  rebuild               Rebuild the dashboard
+  cycle [--skip-collect --retry-failed]  Collect, ingest and decide on notification
   collect [--check | --source ID] [--observe --dry --nav direct|jev --window 12 --max 100]
-  missing-bodies --source ID [--limit 20]  Lister les corps à rattraper
-  messages [--source ID --category ID --query texte --limit 20]
-  message --source ID --id ID  Lire un message et son corps
-  queries [--provider gmail --window 12]  Requêtes par critère activé
+  missing-bodies --source ID [--limit 20]  List bodies to backfill
+  messages [--source ID --category ID --query text --limit 20]
+  message --source ID --id ID  Read a message and its body
+  queries [--provider gmail --window 12]  Queries per enabled criterion
   jev-backfill [--source ID --limit 20 --dry --stale]
-  jev-agreement          Comparer JEV aux étiquettes humaines
-  serve [--port 4177]    Dashboard et réglages sur 127.0.0.1
-  mcp                   Serveur MCP stdio (stdout réservé au protocole)
+  jev-agreement         Compare JEV with human labels
+  serve [--port 4177]   Dashboard and settings on 127.0.0.1
+  mcp                   MCP stdio server (stdout reserved for the protocol)
 
-Options globales: --root <répertoire>, --json, --help (-h), --version (-v)
-Sans commande: afficher cette aide. Données par défaut: espace utilisateur jobmailboard.
+Global options: --root <dir>, --json, --help (-h), --version (-v)
+No command: print this help. Default data: the jobmailboard user workspace.
 `;
 
 export async function main(args = process.argv.slice(2)): Promise<void> {

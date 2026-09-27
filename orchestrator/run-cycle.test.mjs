@@ -69,7 +69,7 @@ test('cycle complet : un canal en panne n’empêche ni les autres ni l’ingest
   assert.equal(result.notify, true);
   assert.equal(result.added, 3);
   assert.deepEqual(result.channels, { 'proton-up': 'ok', 'proton-down': 'error', 'gmail-primary': 'delegated' });
-  assert.match(result.message, /3 nouveau\(x\).*proton-down \(error\)/);
+  assert.match(result.message, /3 new message\(s\).*proton-down \(error\)/);
 
   // La panne est tracée par un run d'échec, ingéré comme les autres.
   const runs = fs
@@ -157,7 +157,7 @@ test('ingestion en échec : pas de notification, cycle signalé en erreur', asyn
   });
   assert.equal(result.ok, false);
   assert.equal(result.notify, false);
-  assert.match(result.message, /ingestion en échec.*criteria\.json illisible/);
+  assert.match(result.message, /ingestion failed.*criteria\.json illisible/);
   // Le run attend toujours : le prochain cycle le reprendra.
   assert.equal(fs.readdirSync(inbox).length, 1);
 });

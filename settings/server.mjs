@@ -30,7 +30,7 @@ const readBody = async (request) => {
   let size = 0;
   for await (const chunk of request) {
     size += chunk.length;
-    if (size > 2_000_000) throw new Error('Requête trop volumineuse.');
+    if (size > 2_000_000) throw new Error('Request too large.');
     chunks.push(chunk);
   }
   return JSON.parse(Buffer.concat(chunks).toString('utf8'));
@@ -68,8 +68,8 @@ export async function saveSettings(root, settings, rebuild = () => runRebuild(ro
         rollbackError ??= restoreError;
       }
     }
-    const suffix = rollbackError ? ` La restauration a aussi échoué : ${rollbackError.message}` : '';
-    return { ok: false, status: 500, errors: [{ path: '', message: `Enregistrement annulé : ${error.message}.${suffix}` }] };
+    const suffix = rollbackError ? ` Restoring also failed: ${rollbackError.message}` : '';
+    return { ok: false, status: 500, errors: [{ path: '', message: `Save cancelled: ${error.message}.${suffix}` }] };
   } finally {
     for (const temp of staged.values()) fs.rmSync(temp, { force: true });
   }
@@ -88,8 +88,8 @@ export async function createSettingsServer({ root = ROOT, host = '127.0.0.1', po
 
       if (isApi) {
         const origin = request.headers.origin;
-        if (origin && origin !== `http://${request.headers.host}`) return json(response, 403, { error: 'Origine refusée.' });
-        if (request.headers['x-mailboard-token'] !== token) return json(response, 403, { error: 'Jeton local invalide.' });
+        if (origin && origin !== `http://${request.headers.host}`) return json(response, 403, { error: 'Origin refused.' });
+        if (request.headers['x-mailboard-token'] !== token) return json(response, 403, { error: 'Invalid local token.' });
 
         if (request.method === 'GET' && url.pathname === '/api/settings') {
           return json(response, 200, { settings: readSettings(root) });
@@ -100,7 +100,7 @@ export async function createSettingsServer({ root = ROOT, host = '127.0.0.1', po
           return json(response, errors.length ? 422 : 200, { ok: errors.length === 0, errors });
         }
         if (request.method === 'PUT' && url.pathname === '/api/settings') {
-          if (saving) return json(response, 409, { errors: [{ path: '', message: 'Un enregistrement est déjà en cours.' }] });
+          if (saving) return json(response, 409, { errors: [{ path: '', message: 'A save is already in progress.' }] });
           saving = true;
           try {
             const result = await saveSettings(root, await readBody(request), rebuild);
@@ -118,7 +118,7 @@ export async function createSettingsServer({ root = ROOT, host = '127.0.0.1', po
           const result = saveLabel(root, await readBody(request));
           return json(response, result.status, result);
         }
-        return json(response, 404, { error: 'Route inconnue.' });
+        return json(response, 404, { error: 'Unknown route.' });
       }
 
       if (request.method !== 'GET' && request.method !== 'HEAD') {
@@ -173,8 +173,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
   const portArg = process.argv.indexOf('--port');
   const port = portArg >= 0 ? Number(process.argv[portArg + 1]) : 4177;
   const app = await createSettingsServer({ port });
-  console.log(`Mailboard réglages : ${app.url}`);
-  console.log('Ctrl+C pour arrêter le processus local.');
+  console.log(`Mailboard settings: ${app.url}`);
+  console.log('Ctrl+C to stop the local process.');
   process.on('SIGINT', async () => {
     await app.close();
     process.exit(0);

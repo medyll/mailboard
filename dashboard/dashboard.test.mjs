@@ -178,6 +178,6 @@ test('le dashboard file:// filtre, recherche, ouvre un corps et garde l’état 
       ['gmail-primary:two'],
     );
     await tab.eval(`location.reload()`);
-    assert.equal(await tab.eval(waitInPage(`document.querySelector('[data-toggle="gmail-primary:two"]')?.textContent === 'Rouvrir'`)), true);
+    assert.equal(await tab.eval(waitInPage(`document.querySelector('[data-toggle="gmail-primary:two"]')?.textContent === 'Reopen'`)), true);
   });
 });

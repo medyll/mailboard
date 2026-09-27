@@ -22,9 +22,9 @@ export function validateSettings(settings) {
   const errors = [];
   const add = (path, message) => errors.push({ path, message });
 
-  if (!isObject(settings)) return [{ path: '', message: 'La configuration doit être un objet.' }];
+  if (!isObject(settings)) return [{ path: '', message: 'The configuration must be an object.' }];
   for (const key of Object.keys(FILES)) {
-    if (!isObject(settings[key])) add(key, `Le fichier ${FILES[key]} est absent ou invalide.`);
+    if (!isObject(settings[key])) add(key, `File ${FILES[key]} is missing or invalid.`);
   }
   if (errors.length) return errors;
 
@@ -37,10 +37,10 @@ export function validateSettings(settings) {
 function validateCriteria(config, add) {
   const windowHours = config.defaults?.windowHours;
   if (!Number.isInteger(windowHours) || windowHours < 1 || windowHours > 720) {
-    add('criteria.defaults.windowHours', 'La fenêtre doit être un entier entre 1 et 720 heures.');
+    add('criteria.defaults.windowHours', 'The window must be an integer between 1 and 720 hours.');
   }
   if (!Array.isArray(config.criteria) || config.criteria.length === 0) {
-    add('criteria.criteria', 'Ajoutez au moins un critère.');
+    add('criteria.criteria', 'Add at least one criterion.');
     return;
   }
 
@@ -48,16 +48,16 @@ function validateCriteria(config, add) {
   config.criteria.forEach((criterion, index) => {
     const base = `criteria.criteria.${index}`;
     if (!isObject(criterion)) {
-      add(base, 'Le critère doit être un objet.');
+      add(base, 'The criterion must be an object.');
       return;
     }
     validateUniqueId(criterion.id, `${base}.id`, ids, add);
-    if (!isText(criterion.label)) add(`${base}.label`, 'Le libellé est obligatoire.');
+    if (!isText(criterion.label)) add(`${base}.label`, 'The label is required.');
     if (criterion.enabled !== undefined && typeof criterion.enabled !== 'boolean') {
-      add(`${base}.enabled`, 'enabled doit être vrai ou faux.');
+      add(`${base}.enabled`, 'enabled must be true or false.');
     }
     if (!isObject(criterion.queries)) {
-      add(`${base}.queries`, 'Les requêtes doivent former un objet.');
+      add(`${base}.queries`, 'Queries must form an object.');
       return;
     }
     for (const [provider, query] of Object.entries(criterion.queries)) {
@@ -65,36 +65,36 @@ function validateCriteria(config, add) {
       if (provider === 'keywords' || provider === 'fromDomains') {
         validateStringList(query, `${base}.queries.${provider}`, add, false);
       } else if (typeof query !== 'string') {
-        add(`${base}.queries.${provider}`, `La requête ${provider} doit être du texte.`);
+        add(`${base}.queries.${provider}`, `The ${provider} query must be text.`);
       }
     }
   });
 
   const fallbackId = config.fallback?.id;
-  if (!isId(fallbackId)) add('criteria.fallback.id', 'L’identifiant de repli doit être en kebab-case.');
-  if (!isText(config.fallback?.label)) add('criteria.fallback.label', 'Le libellé de repli est obligatoire.');
-  if (ids.has(fallbackId)) add('criteria.fallback.id', 'Le repli ne peut pas reprendre l’identifiant d’un critère.');
+  if (!isId(fallbackId)) add('criteria.fallback.id', 'The fallback identifier must be kebab-case.');
+  if (!isText(config.fallback?.label)) add('criteria.fallback.label', 'The fallback label is required.');
+  if (ids.has(fallbackId)) add('criteria.fallback.id', 'The fallback cannot reuse a criterion identifier.');
 
   const known = new Set([...ids, fallbackId]);
   if (config.aliases !== undefined && !isObject(config.aliases)) {
-    add('criteria.aliases', 'Les alias doivent former un objet.');
+    add('criteria.aliases', 'Aliases must form an object.');
   } else {
     for (const [alias, target] of Object.entries(config.aliases ?? {})) {
-      if (!isId(alias)) add(`criteria.aliases.${alias}`, 'Un alias doit être en kebab-case.');
-      if (!known.has(target)) add(`criteria.aliases.${alias}`, `La cible « ${target} » n’existe pas.`);
+      if (!isId(alias)) add(`criteria.aliases.${alias}`, 'An alias must be kebab-case.');
+      if (!known.has(target)) add(`criteria.aliases.${alias}`, `Target "${target}" does not exist.`);
     }
   }
 }
 
 function validatePreferences(config, add) {
   if (!Array.isArray(config.preferences)) {
-    add('preferences.preferences', 'La liste des préférences est obligatoire.');
+    add('preferences.preferences', 'The preference list is required.');
     return;
   }
   const weights = config.weights ?? {};
   for (const strength of ['blocker', 'strong', 'mild']) {
     if (!Number.isFinite(weights[strength]) || weights[strength] < 0) {
-      add(`preferences.weights.${strength}`, `Le poids ${strength} doit être un nombre positif.`);
+      add(`preferences.weights.${strength}`, `The ${strength} weight must be a positive number.`);
     }
   }
 
@@ -102,31 +102,31 @@ function validatePreferences(config, add) {
   config.preferences.forEach((preference, index) => {
     const base = `preferences.preferences.${index}`;
     if (!isObject(preference)) {
-      add(base, 'La préférence doit être un objet.');
+      add(base, 'The preference must be an object.');
       return;
     }
     validateUniqueId(preference.id, `${base}.id`, ids, add);
-    if (!isText(preference.label)) add(`${base}.label`, 'Le libellé est obligatoire.');
+    if (!isText(preference.label)) add(`${base}.label`, 'The label is required.');
     if (preference.enabled !== undefined && typeof preference.enabled !== 'boolean') {
-      add(`${base}.enabled`, 'enabled doit être vrai ou faux.');
+      add(`${base}.enabled`, 'enabled must be true or false.');
     }
-    if (!['pro', 'con'].includes(preference.kind)) add(`${base}.kind`, 'Choisissez pro ou con.');
+    if (!['pro', 'con'].includes(preference.kind)) add(`${base}.kind`, 'Choose pro or con.');
     if (!['blocker', 'strong', 'mild'].includes(preference.strength)) {
-      add(`${base}.strength`, 'Choisissez blocker, strong ou mild.');
+      add(`${base}.strength`, 'Choose blocker, strong or mild.');
     }
     validateStringList(preference.match?.keywords, `${base}.match.keywords`, add, true);
   });
 }
 
 function validateJev(config, add) {
-  if (typeof config.enabled !== 'boolean') add('jev.enabled', 'enabled doit être vrai ou faux.');
-  if (!isText(config.model)) add('jev.model', 'Le modèle est obligatoire.');
-  if (!isText(config.questionSet)) add('jev.questionSet', 'Le jeu de questions est obligatoire.');
+  if (typeof config.enabled !== 'boolean') add('jev.enabled', 'enabled must be true or false.');
+  if (!isText(config.model)) add('jev.model', 'The model is required.');
+  if (!isText(config.questionSet)) add('jev.questionSet', 'The question set is required.');
   try {
     const endpoint = new URL(config.endpoint);
     if (!['http:', 'https:'].includes(endpoint.protocol)) throw new Error('protocol');
   } catch {
-    add('jev.endpoint', 'L’endpoint doit être une URL HTTP ou HTTPS valide.');
+    add('jev.endpoint', 'The endpoint must be a valid HTTP or HTTPS URL.');
   }
   validateInteger(config.timeoutMs, 'jev.timeoutMs', 500, 120000, add);
   validateInteger(config.concurrency, 'jev.concurrency', 1, 20, add);
@@ -135,11 +135,11 @@ function validateJev(config, add) {
   for (const [key, value] of Object.entries(config.thresholds ?? {})) {
     if (key.startsWith('$')) continue;
     if (value !== null && (!Number.isFinite(value) || value < 0 || value > 1)) {
-      add(`jev.thresholds.${key}`, 'Un seuil doit être vide ou compris entre 0 et 1.');
+      add(`jev.thresholds.${key}`, 'A threshold must be empty or between 0 and 1.');
     }
   }
   if (!Array.isArray(config.questions) || config.questions.length === 0) {
-    add('jev.questions', 'Ajoutez au moins une question JEV.');
+    add('jev.questions', 'Add at least one JEV question.');
     return;
   }
 
@@ -147,28 +147,28 @@ function validateJev(config, add) {
   config.questions.forEach((question, index) => {
     const base = `jev.questions.${index}`;
     if (!isObject(question)) {
-      add(base, 'La question doit être un objet.');
+      add(base, 'The question must be an object.');
       return;
     }
     validateUniqueQuestionId(question.id, `${base}.id`, ids, add);
     if (question.enabled !== undefined && typeof question.enabled !== 'boolean') {
-      add(`${base}.enabled`, 'enabled doit être vrai ou faux.');
+      add(`${base}.enabled`, 'enabled must be true or false.');
     }
     if (!['noul', 'choice', 'score'].includes(question.primitive)) {
-      add(`${base}.primitive`, 'La primitive doit être noul, choice ou score.');
+      add(`${base}.primitive`, 'The primitive must be noul, choice or score.');
     }
-    if (!isText(question.text)) add(`${base}.text`, 'La formulation est obligatoire.');
-    if (!isText(question.usage)) add(`${base}.usage`, 'L’usage est obligatoire.');
+    if (!isText(question.text)) add(`${base}.text`, 'The wording is required.');
+    if (!isText(question.usage)) add(`${base}.usage`, 'The usage is required.');
     if (question.requiresProfile !== undefined && typeof question.requiresProfile !== 'boolean') {
-      add(`${base}.requiresProfile`, 'requiresProfile doit être vrai ou faux.');
+      add(`${base}.requiresProfile`, 'requiresProfile must be true or false.');
     }
     if (question.primitive === 'choice') {
       if (!isObject(question.options) || Object.keys(question.options).length < 2) {
-        add(`${base}.options`, 'Une question choice demande au moins deux options.');
+        add(`${base}.options`, 'A choice question needs at least two options.');
       } else {
         for (const [key, description] of Object.entries(question.options)) {
           if (!/^[a-z0-9_]+$/.test(key) || !isText(description)) {
-            add(`${base}.options.${key}`, 'Chaque option demande une clé simple et une description.');
+            add(`${base}.options.${key}`, 'Each option needs a simple key and a description.');
           }
         }
       }
@@ -179,34 +179,34 @@ function validateJev(config, add) {
 
 function validateUniqueId(value, path, ids, add) {
   if (!isId(value)) {
-    add(path, 'L’identifiant doit être en kebab-case.');
+    add(path, 'The identifier must be kebab-case.');
     return;
   }
-  if (ids.has(value)) add(path, `L’identifiant « ${value} » est dupliqué.`);
+  if (ids.has(value)) add(path, `Identifier "${value}" is duplicated.`);
   ids.add(value);
 }
 
 function validateUniqueQuestionId(value, path, ids, add) {
   if (typeof value !== 'string' || !/^[a-z][A-Za-z0-9]*$/.test(value)) {
-    add(path, 'L’identifiant JEV doit être en camelCase.');
+    add(path, 'A JEV identifier must be camelCase.');
     return;
   }
-  if (ids.has(value)) add(path, `L’identifiant « ${value} » est dupliqué.`);
+  if (ids.has(value)) add(path, `Identifier "${value}" is duplicated.`);
   ids.add(value);
 }
 
 function validateStringList(value, path, add, required, minimum = required ? 1 : 0) {
   if (!Array.isArray(value)) {
-    if (required) add(path, 'Une liste est obligatoire.');
+    if (required) add(path, 'A list is required.');
     return;
   }
-  if (value.length < minimum) add(path, `Ajoutez au moins ${minimum} valeur(s).`);
-  if (value.some((item) => !isText(item))) add(path, 'Chaque valeur doit être un texte non vide.');
+  if (value.length < minimum) add(path, `Add at least ${minimum} value(s).`);
+  if (value.some((item) => !isText(item))) add(path, 'Each value must be non-empty text.');
 }
 
 function validateInteger(value, path, minimum, maximum, add) {
   if (!Number.isInteger(value) || value < minimum || value > maximum) {
-    add(path, `La valeur doit être un entier entre ${minimum} et ${maximum}.`);
+    add(path, `The value must be an integer between ${minimum} and ${maximum}.`);
   }
 }
 

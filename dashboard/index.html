@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="fr">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Mailboard — veille emploi</title>
+    <title>Mailboard — job watch</title>
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="settings-component/settings-component.css" />
   </head>
@@ -11,13 +11,13 @@
     <header class="topbar">
       <div>
         <h1>Mailboard</h1>
-        <p class="sub" id="freshness">chargement…</p>
+        <p class="sub" id="freshness">loading…</p>
       </div>
       <div class="topbar-actions">
-        <input type="search" id="search" placeholder="Filtrer (expéditeur, objet…)" />
-        <a class="topbar-link" href="labeling-component/labeling-component.html" title="Comparer JEV à votre jugement">Étiqueter JEV</a>
-        <button id="settings-open" type="button" title="Modifier les réglages locaux">Réglages</button>
-        <button id="theme-toggle" type="button" title="Thème clair / sombre">◐</button>
+        <input type="search" id="search" placeholder="Filter (sender, subject…)" />
+        <a class="topbar-link" href="labeling-component/labeling-component.html" title="Compare JEV with your judgement">Label JEV</a>
+        <button id="settings-open" type="button" title="Edit local settings">Settings</button>
+        <button id="theme-toggle" type="button" title="Light / dark theme">◐</button>
       </div>
     </header>
 
@@ -26,7 +26,7 @@
 
       <section class="panel">
         <div class="panel-head">
-          <h2>Couverture des runs</h2>
+          <h2>Run coverage</h2>
           <span class="hint" id="coverage-hint"></span>
         </div>
         <div class="sparkbar" id="coverage"></div>
@@ -40,14 +40,14 @@
         <div class="toggles">
           <label>
             Source
-            <select class="source-filter" id="source-filter" aria-label="Filtrer par source"></select>
+            <select class="source-filter" id="source-filter" aria-label="Filter by source"></select>
           </label>
-          <label><input type="checkbox" id="hide-done" /> Masquer les traités</label>
-          <label><input type="checkbox" id="hide-blocked" /> Masquer les rédhibitoires</label>
+          <label><input type="checkbox" id="hide-done" /> Hide processed</label>
+          <label><input type="checkbox" id="hide-blocked" /> Hide blockers</label>
           <span class="hint" id="count-hint"></span>
         </div>
         <ul class="messages" id="messages"></ul>
-        <p class="empty" id="empty" hidden>Rien ne correspond à ce filtre.</p>
+        <p class="empty" id="empty" hidden>Nothing matches this filter.</p>
       </section>
     </main>
 
@@ -56,21 +56,21 @@
       <settings-dialog role="dialog" aria-modal="true" aria-labelledby="settings-title">
         <settings-header>
           <div>
-            <h2 id="settings-title">Réglages</h2>
-            <p id="settings-subtitle">3 fichiers de configuration</p>
+            <h2 id="settings-title">Settings</h2>
+            <p id="settings-subtitle">3 configuration files</p>
           </div>
-          <button class="settings-close" type="button" data-settings-close aria-label="Fermer">×</button>
+          <button class="settings-close" type="button" data-settings-close aria-label="Close">×</button>
         </settings-header>
         <settings-layout>
-          <settings-nav aria-label="Sections des réglages"></settings-nav>
+          <settings-nav aria-label="Settings sections"></settings-nav>
           <settings-content></settings-content>
         </settings-layout>
         <settings-footer>
-          <p id="settings-status" role="status">Aucune modification</p>
+          <p id="settings-status" role="status">No changes</p>
           <group-control>
-            <button id="settings-reload" type="button" hidden>Recharger</button>
-            <button id="settings-cancel" type="button">Annuler</button>
-            <button id="settings-save" type="button" disabled>Enregistrer et reconstruire</button>
+            <button id="settings-reload" type="button" hidden>Reload</button>
+            <button id="settings-cancel" type="button">Cancel</button>
+            <button id="settings-save" type="button" disabled>Save and rebuild</button>
           </group-control>
         </settings-footer>
       </settings-dialog>

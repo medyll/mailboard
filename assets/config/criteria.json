@@ -1,10 +1,32 @@
 {
   "schemaVersion": 1,
-  "defaults": { "windowHours": 12, "fallbackCategory": "autre" },
-  "criteria": [{
-    "id": "emploi", "label": "Emploi", "enabled": true, "profileMatch": true,
-    "queries": { "gmail": "newer_than:{windowHours}h (emploi OR recrutement OR candidature OR job)", "keywords": ["emploi", "recrutement", "candidature", "job"], "fromDomains": [] }
-  }],
+  "defaults": {
+    "windowHours": 12,
+    "fallbackCategory": "autre"
+  },
+  "criteria": [
+    {
+      "id": "emploi",
+      "label": "Jobs",
+      "enabled": true,
+      "profileMatch": true,
+      "queries": {
+        "gmail": "newer_than:{windowHours}h (emploi OR recrutement OR candidature OR job OR hiring OR application)",
+        "keywords": [
+          "emploi",
+          "recrutement",
+          "candidature",
+          "job",
+          "hiring",
+          "application"
+        ],
+        "fromDomains": []
+      }
+    }
+  ],
   "aliases": {},
-  "fallback": { "id": "autre", "label": "Autre" }
+  "fallback": {
+    "id": "autre",
+    "label": "Other"
+  }
 }

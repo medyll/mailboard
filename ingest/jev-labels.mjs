@@ -42,22 +42,22 @@ export function labelQuestions(root) {
  */
 export function validateLabel(answers, questions) {
   const errors = [];
-  if (!answers || typeof answers !== 'object') return ['answers manquant'];
+  if (!answers || typeof answers !== 'object') return ['answers missing'];
   for (const [id, value] of Object.entries(answers)) {
     const q = questions.find((x) => x.id === id);
     if (!q) {
-      errors.push(`question inconnue : ${id}`);
+      errors.push(`unknown question: ${id}`);
       continue;
     }
     if (value === null) continue;
-    if (q.primitive === 'noul' && typeof value !== 'boolean') errors.push(`${id} : booléen attendu`);
+    if (q.primitive === 'noul' && typeof value !== 'boolean') errors.push(`${id}: boolean expected`);
     if (q.primitive === 'choice') {
       const allowed = Array.isArray(q.options) ? q.options : Object.keys(q.options ?? {});
-      if (!allowed.includes(value)) errors.push(`${id} : option hors contrat`);
+      if (!allowed.includes(value)) errors.push(`${id}: option outside the contract`);
     }
     if (q.primitive === 'score') {
       const max = (q.levels?.length ?? 1) - 1;
-      if (!Number.isInteger(value) || value < 0 || value > max) errors.push(`${id} : entier 0..${max} attendu`);
+      if (!Number.isInteger(value) || value < 0 || value > max) errors.push(`${id}: integer 0..${max} expected`);
     }
   }
   return errors;

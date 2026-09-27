@@ -19,24 +19,24 @@ export function parseCli(args: string[]) {
     window: { type: 'string' }, port: { type: 'string' },
     check: { type: 'boolean' }, observe: { type: 'boolean' }, nav: { type: 'string' }, max: { type: 'string' },
   } });
-  if (parsed.positionals.length > 1) throw new Error('Une seule commande est attendue.');
+  if (parsed.positionals.length > 1) throw new Error('Only one command is expected.');
   const name = parsed.positionals[0];
-  if (name && !commands.includes(name as Command)) throw new Error(`Commande inconnue : ${name}`);
+  if (name && !commands.includes(name as Command)) throw new Error(`Unknown command: ${name}`);
   const command = name as Command | undefined;
   if (command) for (const option of Object.keys(parsed.values)) {
-    if (!['help', 'version', 'root', 'json'].includes(option) && !commandOptions[command].includes(option)) throw new Error(`--${option} ne s’applique pas à ${command}`);
+    if (!['help', 'version', 'root', 'json'].includes(option) && !commandOptions[command].includes(option)) throw new Error(`--${option} does not apply to ${command}`);
   }
-  if (parsed.values.nav && !['direct', 'jev'].includes(parsed.values.nav)) throw new Error('--nav attend direct ou jev');
+  if (parsed.values.nav && !['direct', 'jev'].includes(parsed.values.nav)) throw new Error('--nav expects direct or jev');
   for (const option of ['limit', 'window', 'port', 'max'] as const) {
     const value = parsed.values[option];
-    if (value !== undefined && !/^\d+$/.test(value)) throw new Error(`--${option} attend un entier.`);
+    if (value !== undefined && !/^\d+$/.test(value)) throw new Error(`--${option} expects an integer.`);
     const max = option === 'port' ? 65535 : option === 'window' ? 720 : option === 'max' ? Number.MAX_SAFE_INTEGER : 200;
-    if (value !== undefined && (Number(value) < (option === 'port' ? 0 : 1) || Number(value) > max)) throw new Error(`--${option} hors limites (maximum ${max})`);
+    if (value !== undefined && (Number(value) < (option === 'port' ? 0 : 1) || Number(value) > max)) throw new Error(`--${option} out of range (maximum ${max})`);
   }
   if (!parsed.values.help && !parsed.values.version) {
-    if ((command === 'missing-bodies' || command === 'message') && !parsed.values.source) throw new Error('--source est requis.');
-    if (command === 'message' && !parsed.values.id) throw new Error('--id est requis.');
-    if (command === 'collect' && !parsed.values.check && !parsed.values.source) throw new Error('--source est requis pour collect.');
+    if ((command === 'missing-bodies' || command === 'message') && !parsed.values.source) throw new Error('--source is required.');
+    if (command === 'message' && !parsed.values.id) throw new Error('--id is required.');
+    if (command === 'collect' && !parsed.values.check && !parsed.values.source) throw new Error('--source is required for collect.');
   }
   return { command, values: parsed.values };
 }

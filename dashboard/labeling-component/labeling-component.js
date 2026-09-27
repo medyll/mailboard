@@ -80,7 +80,7 @@ const missingChoice = () => visibleQuestions(current).filter((q) => q.primitive 
 const visibleQuestions = (m) => questions.filter((q) => !q.requiresProfile || q.id in (m.jev.answers ?? {}));
 
 function choices(q) {
-  if (q.primitive === 'noul') return [[true, 'Oui'], [false, 'Non']];
+  if (q.primitive === 'noul') return [[true, 'Yes'], [false, 'No']];
   if (q.primitive === 'choice') {
     const opts = Array.isArray(q.options) ? Object.fromEntries(q.options.map((o) => [o, o])) : q.options;
     return Object.entries(opts);
@@ -100,7 +100,7 @@ function renderForm() {
       const b = document.createElement('button');
       b.type = 'button';
       b.textContent = label;
-      b.title = value === null ? 'Je ne sais pas / sans objet' : String(value);
+      b.title = value === null ? 'Don’t know / not applicable' : String(value);
       b.setAttribute('aria-pressed', String(answers[q.id] === value));
       b.addEventListener('click', () => {
         answers[q.id] = value;
@@ -118,12 +118,12 @@ function renderForm() {
 function render() {
   const done = Object.keys(labels).length;
   const total = DATA.messages.filter((m) => m.jev?.status === 'ok').length;
-  $('progress').textContent = `${done} étiqueté(s) sur ${total} — ${queue.length} restant(s). Viser ~60 pour un premier calibrage.`;
+  $('progress').textContent = `${done} labeled out of ${total} — ${queue.length} left. Aim for ~60 for a first calibration.`;
 
   current = queue[0] ?? null;
   for (const id of ['card', 'form', 'footer']) $(id).hidden = !current;
   if (!current) {
-    notice('Plus rien à étiqueter. Lancer : node ingest/jev-agreement.mjs');
+    notice('Nothing left to label. Run: node ingest/jev-agreement.mjs');
     return;
   }
 
@@ -131,7 +131,7 @@ function render() {
   edited = false;
   $('meta').textContent = `${current.date?.slice(0, 10)} · ${current.sourceId} · ${current.category} · ${current.from}`;
   $('subject').textContent = current.subject;
-  $('summary').textContent = current.summary || '(pas de résumé)';
+  $('summary').textContent = current.summary || '(no summary)';
   const body = BODIES[current.key]?.text;
   $('body-box').hidden = !body;
   $('body').textContent = body ?? '';
@@ -146,9 +146,9 @@ function reveal(m, mine) {
     const disagree =
       mine[q.id] !== null &&
       (q.primitive === 'noul' ? (theirs >= 0.5) !== mine[q.id] : q.primitive === 'choice' ? theirs !== mine[q.id] : Math.abs(theirs - mine[q.id]) >= 1);
-    return `<li>${disagree ? '≠' : '='} <b>${q.id}</b> : vous ${mine[q.id]} · JEV ${theirs}${j?.confidence != null ? ` (conf. ${j.confidence})` : ''}</li>`;
+    return `<li>${disagree ? '≠' : '='} <b>${q.id}</b>: you ${mine[q.id]} · JEV ${theirs}${j?.confidence != null ? ` (conf. ${j.confidence})` : ''}</li>`;
   });
-  box.innerHTML = `Précédent — <i></i><ul>${rows.join('')}</ul>`;
+  box.innerHTML = `Previous — <i></i><ul>${rows.join('')}</ul>`;
   box.querySelector('i').textContent = m.subject;
   box.hidden = false;
 }
@@ -157,7 +157,7 @@ async function save() {
   if (!current) return;
   const missing = missingChoice();
   if (missing.length) {
-    notice(`Choisir une réponse pour : ${missing.map((q) => q.id).join(', ')} (« ? » si incertain).`);
+    notice(`Pick an answer for: ${missing.map((q) => q.id).join(', ')} ("?" if unsure).`);
     return;
   }
   const m = current;
@@ -169,7 +169,7 @@ async function save() {
     reveal(m, mine);
     render();
   } catch (err) {
-    notice(`Échec de l'enregistrement : ${err.message}`);
+    notice(`Save failed: ${err.message}`);
   }
 }
 
@@ -197,8 +197,8 @@ document.addEventListener('keydown', (e) => {
 });
 
 if (!RUNTIME.enabled) {
-  notice('Page ouverte hors serveur : lancer « node settings/server.mjs » puis ouvrir http://127.0.0.1:4177/labeling-component/labeling-component.html');
-  $('progress').textContent = 'lecture seule';
+  notice('Page opened without the server: run "node settings/server.mjs" then open http://127.0.0.1:4177/labeling-component/labeling-component.html');
+  $('progress').textContent = 'read-only';
 } else {
   api('GET')
     .then((payload) => {
@@ -207,5 +207,5 @@ if (!RUNTIME.enabled) {
       buildQueue();
       render();
     })
-    .catch((err) => notice(`Chargement impossible : ${err.message}`));
+    .catch((err) => notice(`Loading failed: ${err.message}`));
 }

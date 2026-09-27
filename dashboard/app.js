@@ -44,7 +44,7 @@ const bodies = {
     tag.onerror = () => {
       this.map = {};
       this.loading = false;
-      console.warn('bodies.js introuvable — lancer `node ingest/ingest.mjs --rebuild`');
+      console.warn('bodies.js not found — run `node ingest/ingest.mjs --rebuild`');
     };
     document.head.appendChild(tag);
   },
@@ -84,13 +84,13 @@ const state = {
 
 const $ = (id) => document.getElementById(id);
 const fmtDate = (iso) =>
-  new Date(iso).toLocaleString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+  new Date(iso).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 
 function relative(iso) {
   const h = (Date.now() - new Date(iso)) / 36e5;
-  if (h < 1) return "il y a moins d'une heure";
-  if (h < 24) return `il y a ${Math.round(h)} h`;
-  return `il y a ${Math.round(h / 24)} j`;
+  if (h < 1) return 'less than an hour ago';
+  if (h < 24) return `${Math.round(h)} h ago`;
+  return `${Math.round(h / 24)} d ago`;
 }
 
 function visible() {
@@ -130,8 +130,8 @@ function snippet(id, query) {
 function renderFreshness() {
   const last = DATA.runs[0];
   $('freshness').textContent = last
-    ? `Dernier run ${fmtDate(last.runAt)} (${relative(last.runAt)}) · ${DATA.messages.length} message(s) suivis`
-    : 'Aucun run ingéré pour le moment.';
+    ? `Last run ${fmtDate(last.runAt)} (${relative(last.runAt)}) · ${DATA.messages.length} message(s) tracked`
+    : 'No run ingested yet.';
 }
 
 function renderKpis() {
@@ -141,9 +141,9 @@ function renderKpis() {
   for (const m of week) counts[m.category] = (counts[m.category] ?? 0) + 1;
 
   const cards = [
-    { label: '7 derniers jours', value: week.length, tone: 'var(--accent)' },
+    { label: 'Last 7 days', value: week.length, tone: 'var(--accent)' },
     ...DATA.categories.map((c) => ({ label: labelOf(c), value: counts[c] ?? 0, tone: toneOf(c) })),
-    { label: 'À traiter', value: DATA.messages.filter((m) => !done.has(m.key)).length, tone: 'var(--muted)' },
+    { label: 'To process', value: DATA.messages.filter((m) => !done.has(m.key)).length, tone: 'var(--muted)' },
   ];
 
   $('kpis').innerHTML = cards
@@ -156,16 +156,16 @@ function renderCoverage() {
   $('coverage').innerHTML = runs
     .map((r) => {
       const h = r.added ? Math.min(100, 20 + r.added * 20) : 8;
-      return `<i style="height:${h}%" data-empty="${r.added ? 0 : 1}" title="${fmtDate(r.runAt)} — ${r.added} nouveau(x) sur ${r.returned} retourné(s)"></i>`;
+      return `<i style="height:${h}%" data-empty="${r.added ? 0 : 1}" title="${fmtDate(r.runAt)} — ${r.added} new out of ${r.returned} returned"></i>`;
     })
     .join('');
   $('coverage-hint').textContent = runs.length
-    ? `${runs.length} derniers runs · gris = run sans nouveauté`
-    : 'aucun run';
+    ? `last ${runs.length} runs · grey = run with nothing new`
+    : 'no run';
 }
 
 function renderFilters() {
-  const buttons = [{ key: null, label: 'Tout', tone: 'var(--accent)' }].concat(
+  const buttons = [{ key: null, label: 'All', tone: 'var(--accent)' }].concat(
     DATA.categories.map((c) => ({ key: c, label: labelOf(c), tone: toneOf(c) })),
   );
   $('filters').innerHTML = buttons
@@ -191,7 +191,7 @@ function prefTags(m) {
 
 function renderMessages() {
   const rows = visible();
-  $('count-hint').textContent = `${rows.length} affiché(s) sur ${DATA.messages.length}`;
+  $('count-hint').textContent = `${rows.length} shown out of ${DATA.messages.length}`;
   $('empty').hidden = rows.length > 0;
   const q = state.query;
   $('messages').innerHTML = rows
@@ -206,22 +206,22 @@ function renderMessages() {
             <span class="caret">${open ? '▾' : '▸'}</span>
             <span class="msg-subject">${highlight(m.subject, q)}</span>
           </button>
-          <div class="msg-meta">${highlight(m.from, q)} · ${labelOf(m.category)}${m.hasBody ? '' : ' · <em>corps non capturé</em>'}</div>
+          <div class="msg-meta">${highlight(m.from, q)} · ${labelOf(m.category)}${m.hasBody ? '' : ' · <em>body not captured</em>'}</div>
           ${prefTags(m)}
           ${m.summary ? `<div class="msg-summary">${highlight(m.summary, q)}</div>` : ''}
           ${hit && !open ? `<div class="msg-hit">${highlight(hit, q)}</div>` : ''}
           ${
             open
               ? body
-                ? `<pre class="msg-body">${highlight(body, q)}</pre>${bodies.truncated(m.key) ? '<p class="hint">(corps tronqué à l\'ingestion)</p>' : ''}`
-                : `<p class="hint msg-body-empty">${bodies.map ? 'Aucun corps stocké pour ce message.' : 'Chargement…'}</p>`
+                ? `<pre class="msg-body">${highlight(body, q)}</pre>${bodies.truncated(m.key) ? '<p class="hint">(body truncated at ingestion)</p>' : ''}`
+                : `<p class="hint msg-body-empty">${bodies.map ? 'No body stored for this message.' : 'Loading…'}</p>`
               : ''
           }
         </div>
         <div class="msg-side">
           <time datetime="${m.date}">${fmtDate(m.date)}</time>
           ${m.link ? `<a href="${m.link}" target="_blank" rel="noopener">${m.provider === 'gmail' || !m.provider ? 'Gmail' : m.provider}</a>` : ''}
-          <button type="button" data-toggle="${m.key}">${done.has(m.key) ? 'Rouvrir' : 'Traité'}</button>
+          <button type="button" data-toggle="${m.key}">${done.has(m.key) ? 'Reopen' : 'Done'}</button>
         </div>
       </li>`;
     })
@@ -235,7 +235,7 @@ function renderSources() {
   }
 
   $('source-filter').innerHTML = [
-    '<option value="">Toutes les sources</option>',
+    '<option value="">All sources</option>',
     ...[...known.entries()]
       .sort(([left], [right]) => left.localeCompare(right))
       .map(([sourceId, provider]) =>

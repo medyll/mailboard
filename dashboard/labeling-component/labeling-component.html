@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="fr">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Mailboard — étiquetage JEV</title>
+    <title>Mailboard — JEV labeling</title>
     <link rel="stylesheet" href="../style.css" />
     <link rel="stylesheet" href="labeling-component.css" />
   </head>
@@ -11,8 +11,8 @@
     <labeling-component>
       <labeling-header>
         <div>
-          <h1>Étiquetage JEV</h1>
-          <p class="sub" id="progress">chargement…</p>
+          <h1>JEV labeling</h1>
+          <p class="sub" id="progress">loading…</p>
         </div>
         <a class="labeling-back-link" href="../index.html">← Dashboard</a>
       </labeling-header>
@@ -24,7 +24,7 @@
         <h2 id="subject"></h2>
         <p id="summary"></p>
         <details id="body-box">
-          <summary>Corps du mail</summary>
+          <summary>Mail body</summary>
           <pre id="body"></pre>
         </details>
       </labeling-card>
@@ -32,10 +32,10 @@
       <labeling-form id="form" hidden></labeling-form>
 
       <labeling-footer id="footer" hidden>
-        <span class="hint">Choisir le type de mail, puis Entrée : enregistrer · S : passer · ? : je ne sais pas</span>
+        <span class="hint">Pick the mail type, then Enter: save · S: skip · ?: don’t know</span>
         <group-control>
-          <button id="skip" type="button">Passer</button>
-          <button id="save" type="button" class="labeling-primary-button">Enregistrer</button>
+          <button id="skip" type="button">Skip</button>
+          <button id="save" type="button" class="labeling-primary-button">Save</button>
         </group-control>
       </labeling-footer>
 

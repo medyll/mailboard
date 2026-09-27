@@ -264,9 +264,9 @@ export async function runCycle({
   const added = state.ingest.result?.added ?? 0;
   const message =
     state.ingest.status !== 'ok'
-      ? `Mailboard : ingestion en échec (${state.ingest.note})`
-      : `Mailboard : ${added} nouveau(x) message(s)` +
-        (failed.length ? ` — canal en échec : ${failed.map(([id, c]) => `${id} (${c.status})`).join(', ')}` : '');
+      ? `Mailboard: ingestion failed (${state.ingest.note})`
+      : `Mailboard: ${added} new message(s)` +
+        (failed.length ? ` — failed channel(s): ${failed.map(([id, c]) => `${id} (${c.status})`).join(', ')}` : '');
 
   return {
     type: 'mailboard.cycle.result',
