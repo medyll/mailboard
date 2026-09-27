@@ -13,6 +13,10 @@ To use only the CLI, API or MCP server, no clone is needed: see
 - Microsoft Edge for the Proton channel; PowerShell 7 (`pwsh`) to let the
   wrapper start Edge automatically.
 - The Claude desktop app, with the Gmail connector enabled.
+- `uv` and a `TYPESAFE_API_KEY` user environment variable: the collector
+  navigates the webmail with `jev-ultrafast` (installed by `uv` from
+  `collectors/browser-mail/pyproject.toml`). Without them it falls back to its
+  direct path.
 
 ```bash
 git clone https://github.com/medyll/mailboard.git

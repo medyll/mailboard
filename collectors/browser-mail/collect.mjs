@@ -43,9 +43,11 @@ const option = (name) => {
 
 const CHECK = flag('--check');
 // --nav jev délègue la navigation à jev-ultrafast : le modèle choisit les
-// actions, le code garde l'extraction. --nav direct (défaut) suit le chemin
-// connu de la boîte, sans appel ni coût.
-const NAV = option('--nav') ?? 'direct';
+// actions, le code garde l'extraction. C'est le mode normal : sans --nav, le
+// canal peut le fixer (`browser.nav`), sinon JEV. --nav direct suit le chemin
+// connu de la boîte, sans appel ni coût ; il sert aussi de repli quand JEV est
+// indisponible et que personne ne l'a exigé.
+const NAV_OPTION = option('--nav');
 const WINDOW = Number(option('--window') ?? process.env.MAILBOARD_WINDOW_HOURS ?? 0) || null;
 const MAX = Number(option('--max') ?? 0) || null;
 const OBSERVE = flag('--observe');
@@ -74,6 +76,43 @@ async function readBodies(provider, tab, ids) {
   return { bodies, failed };
 }
 
+/**
+ * `readMode: full` : corps des nouveaux mails (`ids`), puis rattrapage des
+ * anciens sans corps. Ouvrir un mail le marque comme lu dans Proton — c'est le
+ * prix accepté de ce mode, que `list-only` (défaut) évite. L'onglet doit déjà
+ * montrer la boîte : `readBody` y reprend l'index de compte.
+ */
+async function readAllBodies({ channel, provider, tab, withContent, ids }) {
+  const full = withContent && channel.collection?.readMode === 'full' && provider.readBody;
+  if (!full) return { bodies: new Map(), backfill: null };
+
+  const fresh = await readBodies(provider, tab, ids);
+  console.log(`  corps   : ${fresh.bodies.size}/${ids.length} lu(s)`);
+
+  const limit = BACKFILL ?? channel.collection?.backfillPerRun ?? 10;
+  if (!(limit > 0)) return { bodies: fresh.bodies, backfill: null };
+  const items = missingBodies({ root: ROOT, sourceId: channel.sourceId, limit: Math.min(limit, 200) }).items;
+  // Une identité par empreinte (`fp-…`) ne désigne aucune URL : inouvrable.
+  const old = items.map((i) => i.id).filter((id) => !id.startsWith('fp-') && !fresh.bodies.has(id));
+  const backfill = { asked: old.length, ...(await readBodies(provider, tab, old)) };
+  console.log(`  rattrapage : ${backfill.bodies.size}/${old.length} corps ancien(s)`);
+  return { bodies: fresh.bodies, backfill };
+}
+
+function writeBackfillRun(channel, runAt, backfill) {
+  if (!backfill?.bodies.size) return;
+  const { file } = writeRun({
+    channel,
+    runAt,
+    kind: 'backfill',
+    status: 'ok',
+    note: backfill.failed ? `${backfill.failed} corps illisible(s)` : undefined,
+    coverage: null,
+    messages: [...backfill.bodies].map(([id, body]) => ({ id, body })),
+  });
+  console.log(`  run de rattrapage : ${path.relative(ROOT, file)}`);
+}
+
 const stamp = (d) =>
   `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}` +
   `-${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')}`;
@@ -100,7 +139,7 @@ function writeRun({ channel, runAt, status, note, coverage, messages, engine, ki
       browser: channel.browser?.family ?? null,
       // Dit par quoi la navigation a été décidée : un run guidé par un modèle
       // et un run déterministe ne se relisent pas de la même façon.
-      engine: engine ?? (NAV === 'jev' ? 'jev-ultrafast' : 'cdp-déterministe'),
+      engine: engine ?? 'cdp-déterministe',
       status,
       ...(note ? { note } : {}),
     },
@@ -249,10 +288,34 @@ async function collectViaJev({ channel, provider, criteria, runAt, folder, bound
         }))
     : [];
 
+  // JEV a trouvé la vue et le compte est vérifié ; les corps, eux, s'ouvrent
+  // par une URL connue : aucune décision à confier au modèle. Le code les lit
+  // dans un onglet à lui, comme toute extraction (jev_driver.py).
+  const ids = messages.filter((m) => m.identityQuality === 'provider-id').map((m) => m.id);
+  const browser = channel.browser ?? {};
+  const { bodies, backfill } =
+    withContent && channel.collection?.readMode === 'full' && provider.readBody
+      ? await withOwnedTab(
+          {
+            port,
+            family: browser.family ?? 'edge',
+            profile: browser.profile ?? null,
+            allowedOrigins: [provider.ORIGIN, ...(provider.AUTH_ORIGINS ?? [])],
+          },
+          async (tab) => {
+            await provider.openInbox(tab, { accountHint: channel.accountHint });
+            return readAllBodies({ channel, provider, tab, withContent, ids });
+          },
+        )
+      : { bodies: new Map(), backfill: null };
+  for (const m of messages) if (bodies.has(m.id)) m.body = bodies.get(m.id);
+  writeBackfillRun(channel, runAt, backfill);
+
   const { file } = writeRun({
     channel,
     runAt,
     status: 'ok',
+    engine: 'jev-ultrafast',
     note: `navigation jev-ultrafast : ${out.steps} action(s) jusqu'à la vue`,
     coverage,
     messages,
@@ -280,10 +343,21 @@ async function collect(channel, { withContent }) {
 
   const port = Number(process.env.MAILBOARD_CDP_PORT ?? browser.port ?? 9222);
 
+  const nav = NAV_OPTION ?? browser.nav ?? 'jev';
+  let navNote = null;
+
   try {
-    if (NAV === 'jev') {
-      await collectViaJev({ channel, provider, criteria, runAt, folder, bounds, port, withContent });
-      return;
+    if (nav === 'jev') {
+      try {
+        await collectViaJev({ channel, provider, criteria, runAt, folder, bounds, port, withContent });
+        return;
+      } catch (err) {
+        // Mauvais compte : aucune autre voie ne doit lire cette boîte. JEV
+        // exigé (--nav jev) : son échec est le résultat attendu du run.
+        if (NAV_OPTION === 'jev' || (err instanceof CollectorError && err.status === 'wrong_account')) throw err;
+        navNote = `JEV indisponible (${err.status ?? 'error'} : ${err.message}) — voie directe`;
+        console.warn(`  ! ${navNote}`);
+      }
     }
 
     const result = await withOwnedTab(
@@ -305,43 +379,14 @@ async function collect(channel, { withContent }) {
             console.log(`  page ${page} — ${collectees} ligne(s) accumulée(s)${ajoutees === undefined ? '' : ` (+${ajoutees})`}`),
         });
 
-        // `readMode: full` : ouvrir chaque nouveau mail pour en lire le corps.
-        // Ouvrir un mail le marque comme lu dans Proton — c'est le prix accepté
-        // de ce mode, que `list-only` (défaut) évite.
-        const full = withContent && channel.collection?.readMode === 'full' && provider.readBody;
-        if (!full) return { session, list, bodies: new Map(), backfill: null };
-
         const inWindow = list.rows.filter((r) => r.id && !(r.date && r.date < bounds.from)).map((r) => r.id);
-        const fresh = await readBodies(provider, tab, inWindow);
-        console.log(`  corps   : ${fresh.bodies.size}/${inWindow.length} lu(s)`);
-
-        const limit = BACKFILL ?? channel.collection?.backfillPerRun ?? 10;
-        let backfill = null;
-        if (limit > 0) {
-          const items = missingBodies({ root: ROOT, sourceId: channel.sourceId, limit: Math.min(limit, 200) }).items;
-          // Une identité par empreinte (`fp-…`) ne désigne aucune URL : inouvrable.
-          const ids = items.map((i) => i.id).filter((id) => !id.startsWith('fp-') && !fresh.bodies.has(id));
-          backfill = { asked: ids.length, ...(await readBodies(provider, tab, ids)) };
-          console.log(`  rattrapage : ${backfill.bodies.size}/${ids.length} corps ancien(s)`);
-        }
-        return { session, list, bodies: fresh.bodies, backfill };
+        return { session, list, ...(await readAllBodies({ channel, provider, tab, withContent, ids: inWindow })) };
       },
     );
 
     const { session, list, bodies, backfill } = result;
 
-    if (backfill?.bodies.size) {
-      const { file } = writeRun({
-        channel,
-        runAt,
-        kind: 'backfill',
-        status: 'ok',
-        note: backfill.failed ? `${backfill.failed} corps illisible(s)` : undefined,
-        coverage: null,
-        messages: [...backfill.bodies].map(([id, body]) => ({ id, body })),
-      });
-      console.log(`  run de rattrapage : ${path.relative(ROOT, file)}`);
-    }
+    writeBackfillRun(channel, runAt, backfill);
 
     // La liste Proton est virtualisée : « 50 lignes rendues » ne veut pas dire
     // « toute la boîte ». La couverture est complète quand on voit au moins une
@@ -406,7 +451,7 @@ async function collect(channel, { withContent }) {
       channel,
       runAt,
       status: 'ok',
-      note: outOfWindow ? `${outOfWindow} ligne(s) hors fenêtre écartée(s)` : undefined,
+      note: [navNote, outOfWindow ? `${outOfWindow} ligne(s) hors fenêtre écartée(s)` : null].filter(Boolean).join(' ; ') || undefined,
       coverage,
       messages,
     });

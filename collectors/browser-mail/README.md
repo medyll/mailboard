@@ -32,24 +32,29 @@ From the npm package, the same collector runs with
 
 | Mode | Command | Who picks the path | Cost |
 |---|---|---|---|
-| **direct** (default) | `--nav direct` | the code: the inbox URL is known, the path is fixed | no call |
-| **jev** | `--nav jev` | `jev-ultrafast`: JEV gets a goal and the element table, and picks the operation and target | one TypeSafe call per action |
+| **jev** (default) | `--nav jev` | `jev-ultrafast`: JEV gets a goal and the element table, and picks the operation and target | one TypeSafe call per action |
+| **direct** | `--nav direct` | the code: the inbox URL is known, the path is fixed | no call |
 
 Both **share extraction**. Once the view is reached, the same expressions from
-`providers/proton.mjs` read the page. The model never reads the list for us: it
-opens the door, the code walks in.
+`providers/proton.mjs` read the page, and mail bodies (`readMode: "full"`) are
+opened by URL in a tab the code owns. The model never reads the list or a mail
+for us: it opens the door, the code walks in.
 
-Direct mode stays the default because it costs nothing and sends no text off
-the machine. JEV mode exists for what code cannot describe in advance: an
-unknown webmail, a view behind a changing path, an interface that was just
-redesigned.
+JEV is the normal mode: the orchestrator, the MCP `run_cycle` tool and the
+scheduled task all go through it. Without `--nav`, a channel can pin its mode
+with `browser.nav`; otherwise JEV is used. When JEV cannot run (no
+`TYPESAFE_API_KEY`, no `uv`, driver failure) and nobody forced it, the
+collector falls back to direct mode and says so in `collector.note`. A
+`wrong_account` verdict never falls back, and `--nav jev` makes a JEV failure
+the result of the run.
 
 ```bash
 node collectors/browser-mail/collect.mjs --source proton-perso --nav jev --observe
 ```
 
-Verified on the real mailbox: view reached in 3 actions, account confirmed, 50
-rows read by the provider probes.
+Verified on the real mailbox (September 2026): view reached in 4 actions,
+account confirmed, 50 rows read by the provider probes, then bodies read and
+older ones backfilled in the same run.
 
 ### What the JEV driver refuses
 
@@ -174,7 +179,8 @@ Proton**: that is the accepted cost of this mode.
 - About 8 s per mail (a full page load each). A failed mail is counted and
   skipped; a lost session stops body reading, not the collection.
 - Fingerprint identities (`fp-…`) have no URL and are never opened.
-- Not wired for `--nav jev` yet: JEV navigation still reads the list only.
+- Works with both navigation modes: after JEV reaches the view, bodies are read
+  in a second tab owned by the code.
 
 Declare the channel in `config/channels.local.json` (see
 `config/channels.example.json`). The port is overridden by `browser.port` or by

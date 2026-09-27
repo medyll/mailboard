@@ -82,8 +82,9 @@ the agent or a connector drops runs, bodies included, before the cycle.
 Browser collection uses the Node collector and a CDP-capable browser already
 running on the configured port. On Windows, `MAILBOARD_PWSH=pwsh` switches to
 the PowerShell wrapper that starts a dedicated Edge instance; PowerShell is
-otherwise optional. JEV navigation in the collector is an opt-in that needs
-`uv`, Python and a TypeSafe key; see the
+otherwise optional. The collector navigates with `jev-ultrafast` by default,
+which needs `uv`, Python and a TypeSafe key; without them it falls back to its
+direct path and records it in the run. See the
 [collector documentation](collectors/browser-mail/README.md).
 
 ## MCP
