@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.6] - 2026-09-27
+**Features:**
+- scheduled task reviews 10 JEV decisions per pass
+
+**Chores:**
+- sync npm lockfile [skip ci]
+
+
+
 ## [0.1.5] - 2026-09-27
 **Features:**
 - optional mail body excerpt in the JEV state
