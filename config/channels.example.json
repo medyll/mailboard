@@ -74,6 +74,7 @@
         "folders": [
           "inbox"
         ],
+        "$readMode": "full opens each new mail to store its body (marks it as read in Proton) and backfills backfillPerRun older bodies per run.",
         "readMode": "list-only",
         "maxItems": 100
       }

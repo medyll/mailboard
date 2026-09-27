@@ -161,3 +161,21 @@ test('ingestion en échec : pas de notification, cycle signalé en erreur', asyn
   // Le run attend toujours : le prochain cycle le reprendra.
   assert.equal(fs.readdirSync(inbox).length, 1);
 });
+
+test('un run de rattrapage déposé avec le run du canal ne masque pas son statut', async (t) => {
+  const { root, inbox } = setup(t);
+  const collector = async (channel) => {
+    fs.writeFileSync(
+      path.join(inbox, `run-z-${channel.sourceId}.json`),
+      JSON.stringify({ schemaVersion: 2, source: { sourceId: channel.sourceId }, collector: { status: 'partial' }, messages: [] }),
+    );
+    // Écrit après, donc trié en dernier : c'est lui qui piégerait un choix naïf.
+    fs.writeFileSync(
+      path.join(inbox, `zz-backfill-${channel.sourceId}.json`),
+      JSON.stringify({ schemaVersion: 2, kind: 'backfill', source: { sourceId: channel.sourceId }, collector: { status: 'ok' }, messages: [] }),
+    );
+    return { code: 0, stdout: '', stderr: '', timedOut: false };
+  };
+  const result = await runCycle({ root, channels: [channels[1]], collector, log: quiet });
+  assert.deepEqual(result.channels, { 'proton-up': 'partial' });
+});

@@ -155,6 +155,27 @@ that Edge window afterwards, and never expose it to the network.
 
 `--dry` writes the run nowhere and prints what would be produced.
 
+## Mail bodies (`readMode: "full"`)
+
+With `"readMode": "full"` in the channel's `collection`, level C also opens each
+new mail of the window and stores its body. **Opening a mail marks it as read in
+Proton**: that is the accepted cost of this mode.
+
+- A conversation is opened by URL, `/u/<n>/all-mail/<id>`: the account index
+  comes from the page `openInbox` reached, and `all-mail` still finds a mail
+  moved out of the inbox since it was collected.
+- The body is the text of `iframe[data-testid="content-iframe"]` (same origin),
+  under `#proton-root`; the last frame is the message Proton unfolds, the most
+  recent of the conversation. The text is read once two polls agree.
+- In the same session, up to `collection.backfillPerRun` (10 by default) older
+  mails without a body are read too, newest first, and written as a separate
+  `backfill-…` run (`kind: "backfill"`, see `ingest/schema.md`).
+  `--backfill <n>` overrides it for one run (`--backfill 0` disables it).
+- About 8 s per mail (a full page load each). A failed mail is counted and
+  skipped; a lost session stops body reading, not the collection.
+- Fingerprint identities (`fp-…`) have no URL and are never opened.
+- Not wired for `--nav jev` yet: JEV navigation still reads the list only.
+
 Declare the channel in `config/channels.local.json` (see
 `config/channels.example.json`). The port is overridden by `browser.port` or by
 `MAILBOARD_CDP_PORT`.
@@ -164,9 +185,9 @@ Declare the channel in `config/channels.local.json` (see
 - start or close the browser;
 - read or drive a tab it did not create;
 - type a login, a password or a 2FA code;
-- open a message — that would mark it as read, hence change the remote account.
-  `readMode: "list-only"` forbids it, and the summary is the excerpt shown by
-  Proton, sometimes short;
+- open a message under `readMode: "list-only"` (the default) — opening marks it
+  as read, hence changes the remote account; the summary is then the excerpt
+  shown by Proton, sometimes short;
 - compose, reply, delete, archive, label, download an attachment or follow a
   link contained in a mail;
 - navigate outside the configured webmail — the origin is checked before

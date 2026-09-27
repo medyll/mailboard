@@ -255,7 +255,7 @@ const lirePagination = (label) => {
 };
 
 /**
- * Lecture de la liste. N'ouvre aucun message : `readMode: list-only`.
+ * Lecture de la liste. N'ouvre aucun message ; les corps passent par `readBody`.
  *
  * `until` (ISO) demande de remonter jusqu'à cette date : la lecture tourne les
  * pages jusqu'à voir une ligne plus ancienne, ce qui prouve d'avoir atteint le
@@ -349,6 +349,46 @@ export async function readList(
     reachedEdge: atteintLeBord,
     rows: [...collectees.values()],
   };
+}
+
+// Corps du message affiché. Constaté sur la vraie boîte (septembre 2026) : le
+// contenu vit dans `iframe[data-testid="content-iframe"]`, de même origine
+// (sandbox allow-same-origin), sous `#proton-root`. Dans une conversation, le
+// dernier cadre est le message déplié par défaut, le plus récent.
+export const MESSAGE_BODY = `(() => {
+  const frame = [...document.querySelectorAll('[data-testid="content-iframe"]')].at(-1);
+  let doc = null;
+  try { doc = frame?.contentDocument; } catch { return null; }
+  const root = doc?.querySelector('#proton-root') ?? doc?.body;
+  const text = root?.innerText?.trim();
+  return text || null;
+})()`;
+
+/**
+ * Ouvre une conversation par son identifiant et renvoie son corps en texte.
+ * `readMode: full` seulement : ouvrir un message le marque comme lu dans Proton.
+ *
+ * L'URL passe par `all-mail` : un message rangé hors de la boîte de réception
+ * depuis sa collecte reste joignable. L'index de compte (`/u/1/`) est repris de
+ * la page déjà ouverte par `openInbox`, jamais codé en dur.
+ */
+export async function readBody(tab, id, { settleTries = 30, settleMs = 500 } = {}) {
+  const base = /^\/u\/\d+\//.exec(new URL(await tab.url()).pathname)?.[0];
+  if (!base) throw new CollectorError('partial', 'index de compte Proton introuvable dans l’URL');
+  await tab.navigate(`${ORIGIN}${base}all-mail/${encodeURIComponent(id)}`);
+  if (await tab.eval(PROBE.needsUser)) {
+    throw new CollectorError('needs_user', 'session Proton expirée pendant la lecture des corps');
+  }
+
+  // Le cadre se remplit en plusieurs temps : on attend deux lectures identiques.
+  let previous = null;
+  for (let i = 0; i < settleTries; i++) {
+    await attendre(settleMs);
+    const text = await tab.eval(MESSAGE_BODY);
+    if (text && text === previous) return text;
+    previous = text;
+  }
+  return previous;
 }
 
 /**

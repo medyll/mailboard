@@ -7,7 +7,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { CollectorError, STATUSES } from './errors.mjs';
-import { identify, openInbox, parseProtonDate, INBOX_URL } from './providers/proton.mjs';
+import { identify, openInbox, parseProtonDate, readBody, INBOX_URL } from './providers/proton.mjs';
 import { loadCriteria } from '../../config/load.mjs';
 
 // Le module lit argv à l'import : --dry garantit qu'aucun run de test n'atterrit
@@ -187,4 +187,59 @@ test('date Proton : illisible reste nulle plutôt qu inventée', () => {
   for (const v of ['Hier', 'il y a 2 h', '', null, undefined, 'mardi 22 brumaire 2026']) {
     assert.equal(parseProtonDate(v), null, `${v} devrait rester nul`);
   }
+});
+
+/** Onglet simulé pour readBody : le cadre renvoie tour à tour chaque valeur. */
+const bodyTab = ({ start = 'https://mail.proton.me/u/1/inbox', frames = [], needsUser = false } = {}) => {
+  const visited = [];
+  let current = start;
+  let i = 0;
+  return {
+    visited,
+    url: async () => current,
+    navigate: async (url) => {
+      visited.push(url);
+      current = url;
+      return url;
+    },
+    eval: async (expression) => {
+      if (expression.includes('unlockForm')) return needsUser;
+      if (expression.includes('content-iframe')) return frames[Math.min(i++, frames.length - 1)] ?? null;
+      return null;
+    },
+  };
+};
+
+test('corps Proton : URL all-mail sous l index de compte courant, texte stabilisé', async () => {
+  const tab = bodyTab({ frames: [null, 'Bonjour', 'Bonjour,\nOffre complète', 'Bonjour,\nOffre complète'] });
+  const text = await readBody(tab, 'abc==', { settleTries: 10, settleMs: 1 });
+  assert.equal(text, 'Bonjour,\nOffre complète');
+  assert.deepEqual(tab.visited, ['https://mail.proton.me/u/1/all-mail/abc%3D%3D']);
+});
+
+test('corps Proton : sans index de compte dans l URL, partial plutôt qu un /u/0 deviné', async () => {
+  await assert.rejects(
+    () => readBody(bodyTab({ start: 'https://mail.proton.me/' }), 'abc', { settleTries: 2, settleMs: 1 }),
+    (err) => err.status === 'partial',
+  );
+});
+
+test('corps Proton : session perdue en cours de lecture, needs_user', async () => {
+  await assert.rejects(
+    () => readBody(bodyTab({ needsUser: true }), 'abc', { settleTries: 2, settleMs: 1 }),
+    (err) => err.status === 'needs_user',
+  );
+});
+
+test('run de rattrapage : préfixe backfill et kind déclaré', () => {
+  const { run, file } = writeRun({
+    channel,
+    runAt: '2026-09-22T19:00:00.000Z',
+    kind: 'backfill',
+    status: 'ok',
+    coverage: null,
+    messages: [{ id: 'abc', body: 'Corps' }],
+  });
+  assert.equal(run.kind, 'backfill');
+  assert.match(file, /backfill-\d{8}-\d{4}--proton-perso\.json$/);
 });

@@ -54,7 +54,7 @@ rerun.
 
 ## Environment variables
 
-- `MAILBOARD_CHANNEL_TIMEOUT_MS`: max duration per browser channel (5 min by
+- `MAILBOARD_CHANNEL_TIMEOUT_MS`: max duration per browser channel (10 min by
   default).
 - `MAILBOARD_PWSH`: Windows only. When set (e.g. `pwsh`), browser channels go
   through `collectors/browser-mail/run.ps1`, which starts the dedicated Edge

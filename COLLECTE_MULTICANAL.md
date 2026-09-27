@@ -233,9 +233,10 @@ messages. Elle collecte ce que Proton affiche déjà dans chaque ligne :
 - extrait visible ;
 - état non lu, quand il est exposé sans ambiguïté.
 
-Ouvrir un mail peut le marquer comme lu et modifie alors le compte distant. Tant
-que cet effet n'a pas été vérifié, `readMode: "list-only"` interdit l'ouverture.
-La conséquence est assumée : le résumé sera l'extrait Proton, parfois court.
+Ouvrir un mail le marque comme lu et modifie donc le compte distant.
+`readMode: "list-only"` (défaut) interdit l'ouverture : le résumé est alors
+l'extrait Proton, parfois court. `readMode: "full"` accepte cet effet pour
+stocker le corps des mails (voir `collectors/browser-mail/README.md`).
 
 Les opérations suivantes restent interdites : composer, répondre, envoyer,
 supprimer, archiver, déplacer, étiqueter, télécharger une pièce jointe, cliquer

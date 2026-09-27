@@ -16,7 +16,7 @@ export async function collectBrowser(root: string, configRoot: string, options: 
   if (options.maxItems) args.push('--max', String(options.maxItems));
   const output = await run(process.execPath, args, {
     env: { ...process.env, MAILBOARD_ROOT: root, MAILBOARD_CONFIG_DIR: process.env.MAILBOARD_CONFIG_DIR ?? path.join(configRoot, 'config') },
-    timeoutMs: 300000,
+    timeoutMs: 600000,
   });
   if (output.stdout.trim()) logger.log(output.stdout.trim());
   if (output.stderr.trim()) logger.error(output.stderr.trim());

@@ -26,6 +26,7 @@ import { fileURLToPath } from 'node:url';
 import { loadChannels, loadCriteria, ROOT } from '../../config/load.mjs';
 import { withOwnedTab, CollectorError } from './edge.mjs';
 import * as proton from './providers/proton.mjs';
+import { missingBodies } from '../../src/core/services/missing-bodies.mjs';
 
 const NAME = 'browser-mail';
 const VERSION = '0.1.0';
@@ -49,6 +50,29 @@ const WINDOW = Number(option('--window') ?? process.env.MAILBOARD_WINDOW_HOURS ?
 const MAX = Number(option('--max') ?? 0) || null;
 const OBSERVE = flag('--observe');
 const DRY = flag('--dry');
+// Corps anciens à rattraper dans la même session, en plus des nouveaux mails.
+// Défaut : `collection.backfillPerRun` du canal, 10 en `readMode: full`.
+const BACKFILL = option('--backfill') === null ? null : Number(option('--backfill'));
+
+/**
+ * Lit le corps de chaque identifiant, un par un. Un échec isolé est compté et
+ * n'arrête rien ; une session perdue arrête la lecture, pas la collecte.
+ */
+async function readBodies(provider, tab, ids) {
+  const bodies = new Map();
+  let failed = 0;
+  for (const id of ids) {
+    try {
+      const text = await provider.readBody(tab, id);
+      if (text) bodies.set(id, text);
+      else failed++;
+    } catch (err) {
+      failed++;
+      if (err instanceof CollectorError && err.status === 'needs_user') break;
+    }
+  }
+  return { bodies, failed };
+}
 
 const stamp = (d) =>
   `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}` +
@@ -57,10 +81,11 @@ const stamp = (d) =>
 const shortHash = (s) => createHash('sha256').update(s).digest('hex').slice(0, 16);
 
 /** Un run est écrit dans tous les cas : un échec documenté vaut mieux qu'un silence. */
-function writeRun({ channel, runAt, status, note, coverage, messages, engine }) {
-  const runId = `run-${stamp(new Date(runAt))}--${channel.sourceId}`;
+function writeRun({ channel, runAt, status, note, coverage, messages, engine, kind }) {
+  const runId = `${kind === 'backfill' ? 'backfill' : 'run'}-${stamp(new Date(runAt))}--${channel.sourceId}`;
   const run = {
     schemaVersion: 2,
+    ...(kind ? { kind } : {}),
     runAt,
     windowHours: channel.collection?.windowHours ?? null,
     source: {
@@ -279,11 +304,44 @@ async function collect(channel, { withContent }) {
           onPage: ({ page, collectees, ajoutees }) =>
             console.log(`  page ${page} — ${collectees} ligne(s) accumulée(s)${ajoutees === undefined ? '' : ` (+${ajoutees})`}`),
         });
-        return { session, list };
+
+        // `readMode: full` : ouvrir chaque nouveau mail pour en lire le corps.
+        // Ouvrir un mail le marque comme lu dans Proton — c'est le prix accepté
+        // de ce mode, que `list-only` (défaut) évite.
+        const full = withContent && channel.collection?.readMode === 'full' && provider.readBody;
+        if (!full) return { session, list, bodies: new Map(), backfill: null };
+
+        const inWindow = list.rows.filter((r) => r.id && !(r.date && r.date < bounds.from)).map((r) => r.id);
+        const fresh = await readBodies(provider, tab, inWindow);
+        console.log(`  corps   : ${fresh.bodies.size}/${inWindow.length} lu(s)`);
+
+        const limit = BACKFILL ?? channel.collection?.backfillPerRun ?? 10;
+        let backfill = null;
+        if (limit > 0) {
+          const items = missingBodies({ root: ROOT, sourceId: channel.sourceId, limit: Math.min(limit, 200) }).items;
+          // Une identité par empreinte (`fp-…`) ne désigne aucune URL : inouvrable.
+          const ids = items.map((i) => i.id).filter((id) => !id.startsWith('fp-') && !fresh.bodies.has(id));
+          backfill = { asked: ids.length, ...(await readBodies(provider, tab, ids)) };
+          console.log(`  rattrapage : ${backfill.bodies.size}/${ids.length} corps ancien(s)`);
+        }
+        return { session, list, bodies: fresh.bodies, backfill };
       },
     );
 
-    const { session, list } = result;
+    const { session, list, bodies, backfill } = result;
+
+    if (backfill?.bodies.size) {
+      const { file } = writeRun({
+        channel,
+        runAt,
+        kind: 'backfill',
+        status: 'ok',
+        note: backfill.failed ? `${backfill.failed} corps illisible(s)` : undefined,
+        coverage: null,
+        messages: [...backfill.bodies].map(([id, body]) => ({ id, body })),
+      });
+      console.log(`  run de rattrapage : ${path.relative(ROOT, file)}`);
+    }
 
     // La liste Proton est virtualisée : « 50 lignes rendues » ne veut pas dire
     // « toute la boîte ». La couverture est complète quand on voit au moins une
@@ -336,10 +394,11 @@ async function collect(channel, { withContent }) {
         date: row.date ?? runAt,
         from: row.from ?? '(inconnu)',
         subject: row.subject ?? '(sans objet)',
-        // L'extrait Proton tient lieu de résumé : ouvrir le mail le marquerait
-        // comme lu, donc modifierait le compte distant.
+        // L'extrait Proton tient lieu de résumé ; le corps n'arrive qu'en
+        // `readMode: full`, qui ouvre le mail.
         summary: row.snippet ?? '',
         category: category.id,
+        ...(bodies.has(row.id) ? { body: bodies.get(row.id) } : {}),
       });
     }
 

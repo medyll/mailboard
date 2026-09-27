@@ -26,7 +26,7 @@ const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 
 const COLLECTOR_DIR = path.join(PROJECT_ROOT, 'collectors', 'browser-mail');
 
 // Une boîte bloquée sur un écran de connexion ne doit pas geler le cycle.
-const CHANNEL_TIMEOUT_MS = Number(process.env.MAILBOARD_CHANNEL_TIMEOUT_MS ?? 0) || 5 * 60_000;
+const CHANNEL_TIMEOUT_MS = Number(process.env.MAILBOARD_CHANNEL_TIMEOUT_MS ?? 0) || 10 * 60_000;
 
 const stamp = (d) =>
   d.toISOString().slice(0, 19).replace(/[-:]/g, '').replace('T', '-');
@@ -203,7 +203,11 @@ export async function runCycle({
     writeState(stateFile, state);
 
     const result = await collector(channel);
-    const produced = [...inboxRuns(inbox)].filter(([file, r]) => !before.has(file) && r.sourceId === channel.sourceId);
+    // Un run de rattrapage accompagne parfois le run du canal : seul ce dernier
+    // dit comment la collecte s'est passée.
+    const produced = [...inboxRuns(inbox)].filter(
+      ([file, r]) => !before.has(file) && r.sourceId === channel.sourceId && !r.backfill,
+    );
 
     let entry;
     if (produced.length) {
