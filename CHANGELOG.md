@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.1.8] - 2026-10-11
+**Features:**
+- collect Proton mail over IMAP via Proton Mail Bridge
+
+**Chores:**
+- major dependency upgrades (.)
+- update dependencies within semver ranges
+- sync npm lockfile [skip ci]
+
+
+
 ## [0.1.7] - 2026-09-27
 **Features:**
 - clean the body excerpt before sending it to JEV
