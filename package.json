@@ -53,6 +53,8 @@
   },
   "dependencies": {
     "@modelcontextprotocol/server": "^2.1.0",
+    "imapflow": "^2.4.0",
+    "mailparser": "^3.9.38",
     "zod": "^4.0.0"
   },
   "devDependencies": {

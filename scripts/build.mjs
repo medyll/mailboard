@@ -17,5 +17,6 @@ for (const file of ['jev_driver.py', 'pyproject.toml', 'run.ps1']) {
   fs.copyFileSync(path.join(root, 'collectors', 'browser-mail', file), path.join(dist, 'collectors', 'browser-mail', file));
 }
 // Les déclarations internes restent nécessaires aux exports TypeScript publics.
+fs.cpSync(path.join(root, 'collectors', 'proton-bridge'), path.join(dist, 'collectors', 'proton-bridge'), { recursive: true, filter: file => !file.endsWith('.test.mjs') });
 fs.chmodSync(path.join(root, 'bin', 'jobmailboard.js'), 0o755);
 console.log('Build JavaScript et assets terminé.');

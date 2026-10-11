@@ -72,6 +72,12 @@ export function run(command, args, { cwd = PROJECT_ROOT, env = process.env, time
  * qui prépare Edge et son port CDP.
  */
 export function defaultCollector(channel, root = process.env.MAILBOARD_ROOT ?? PROJECT_ROOT) {
+  if (channel.accessMode === 'imap') {
+    return run(process.execPath, [path.join(PROJECT_ROOT, 'collectors', 'proton-bridge', 'collect.mjs'), '--source', channel.sourceId], {
+      env: { ...process.env, MAILBOARD_ROOT: root, MAILBOARD_CONFIG_DIR: process.env.MAILBOARD_CONFIG_DIR ?? path.join(root, 'config') },
+      timeoutMs: CHANNEL_TIMEOUT_MS,
+    });
+  }
   const [command, args] =
     process.platform === 'win32' && process.env.MAILBOARD_PWSH
       ? [
@@ -184,7 +190,7 @@ export async function runCycle({
   writeState(stateFile, state);
 
   // Préparer : quels canaux ce cycle doit-il tenter ?
-  let browserChannels = channels.filter((c) => c.accessMode === 'browser');
+  let browserChannels = channels.filter((c) => ['browser', 'imap'].includes(c.accessMode));
   if (retryFailed) {
     const failed = new Set(
       Object.entries(previous?.channels ?? {})

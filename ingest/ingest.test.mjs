@@ -29,6 +29,32 @@ const readProjection = (file, property) => {
   return sandbox.window[property];
 };
 
+test('une capture complète des archives Proton marque uniquement les messages Proton correspondants', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mailboard-archive-sync-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  fs.mkdirSync(path.join(root, 'data'), { recursive: true });
+  fs.mkdirSync(path.join(root, 'dashboard'), { recursive: true });
+  const messages = [
+    { id: 'same-id', sourceId: 'proton-perso', key: 'proton-perso:same-id', category: 'autre', date: '2026-09-22T08:00:00Z', from: 'x', subject: 'Proton archivé' },
+    { id: 'inbox-id', sourceId: 'proton-perso', key: 'proton-perso:inbox-id', category: 'autre', date: '2026-09-22T08:00:00Z', from: 'x', subject: 'Proton conservé' },
+    { id: 'same-id', sourceId: 'gmail-primary', key: 'gmail-primary:same-id', category: 'autre', date: '2026-09-22T08:00:00Z', from: 'x', subject: 'Gmail conservé' },
+  ];
+  fs.writeFileSync(path.join(root, 'data', 'messages.jsonl'), messages.map((m) => JSON.stringify(m)).join('\n') + '\n');
+  fs.writeFileSync(path.join(root, 'data', 'proton-archive-snapshot.json'), JSON.stringify({
+    sourceId: 'proton-perso', folder: 'archive', complete: true, capturedAt: '2026-09-29T12:00:00Z',
+    messages: [{ id: 'same-id', subject: 'Proton archivé' }, { id: 'not-tracked', subject: 'Hors index' }],
+  }));
+  execFileSync(process.execPath, [INGEST, '--rebuild'], {
+    cwd: PROJECT_ROOT, env: { ...process.env, MAILBOARD_ROOT: root, MAILBOARD_JEV: '0' },
+  });
+  const data = readProjection(path.join(root, 'dashboard', 'data.js'), 'MAILBOARD');
+  assert.equal(data.mailboxSync.total, 2);
+  assert.equal(data.mailboxSync.matched, 1);
+  assert.equal(data.messages.find((m) => m.key === 'proton-perso:same-id').mailboxFolder, 'archive');
+  assert.equal(data.messages.find((m) => m.key === 'proton-perso:inbox-id').mailboxFolder, null);
+  assert.equal(data.messages.find((m) => m.key === 'gmail-primary:same-id').mailboxFolder, null);
+});
+
 test('ingère des runs v1 et v2 sans confondre les identifiants de deux sources', (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mailboard-ingest-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));

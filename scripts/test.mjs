@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const tests = [];
-for (const dir of ['tests', 'ingest', 'settings', 'orchestrator', 'collectors', 'dashboard']) {
+for (const dir of ['config', 'tests', 'ingest', 'settings', 'orchestrator', 'collectors', 'dashboard']) {
   for (const file of fs.readdirSync(path.join(root, dir), { recursive: true })) {
     if (file.endsWith('.test.mjs') && !file.includes('.venv')) tests.push(path.join(root, dir, file));
   }

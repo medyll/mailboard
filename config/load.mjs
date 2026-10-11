@@ -158,6 +158,7 @@ export function loadCriteria({ root } = {}) {
  * Registre des canaux. channels.local.json est optionnel : sans lui, seule la
  * collecte Gmail historique tourne, et l'exemple sert de documentation.
  */
+/** @param {{includeDisabled?: boolean, root?: string}} [options] */
 export function loadChannels({ includeDisabled = false, root } = {}) {
   const paths = pathsFor(root);
   const file = fs.existsSync(paths.channels) ? paths.channels : null;
@@ -250,33 +251,53 @@ export function loadPreferences({ root } = {}) {
   const entries = (raw.preferences ?? []).filter((p) => p.enabled !== false);
   const weights = { blocker: 4, strong: 2, mild: 1, ...(raw.weights ?? {}) };
 
+  // Mot entier : « java » ne doit pas toucher « javascript », ni « agent »
+  // « agent immobilier » au profit d'une préférence IA.
+  const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const matchers = new Map(
+    entries.map((p) => [
+      p.id,
+      (p.match?.keywords ?? []).map((k) => new RegExp(`(?<![\\p{L}\\p{N}])${escape(k)}(?![\\p{L}\\p{N}])`, 'iu')),
+    ]),
+  );
+  const hits = (p, text) => matchers.get(p.id).some((re) => re.test(text));
+  const digestPatterns = (raw.digest?.subjectPatterns ?? []).map((s) => new RegExp(s, 'iu'));
+
   return {
     raw,
     entries,
     labels: Object.fromEntries(entries.map((p) => [p.id, p.label ?? p.id])),
 
-    /** Renvoie les préférences touchées par un message, et le score qui en découle. */
-    evaluate({ from = '', subject = '', summary = '' } = {}) {
-      const haystack = `${from} ${subject} ${summary}`.toLowerCase();
+    /**
+     * Renvoie les préférences touchées par un message, et le score qui en découle.
+     * Le corps compte comme l'en-tête, sauf pour un digest (plusieurs offres dans
+     * un mail) : là, un mot rédhibitoire du corps baisse le score sans bloquer,
+     * sinon une seule offre Java masquerait les offres React voisines.
+     */
+    evaluate({ from = '', subject = '', summary = '', body = '' } = {}) {
+      const head = `${from} ${subject} ${summary}`;
+      const digest = digestPatterns.some((re) => re.test(subject));
       const pro = [];
       const con = [];
       let score = 0;
       let blocked = false;
 
       for (const p of entries) {
-        const hit = (p.match?.keywords ?? []).find((k) => haystack.includes(k.toLowerCase()));
-        if (!hit) continue;
+        const inHead = hits(p, head);
+        const inBody = !inHead && body && hits(p, body);
+        if (!inHead && !inBody) continue;
+        if (inBody && digest && p.kind !== 'con') continue;
         const weight = weights[p.strength] ?? 1;
         if (p.kind === 'con') {
           con.push(p.id);
           score -= weight;
-          if (p.strength === 'blocker') blocked = true;
+          if (p.strength === 'blocker' && !(inBody && digest)) blocked = true;
         } else {
           pro.push(p.id);
           score += weight;
         }
       }
-      return { score, pro, con, blocked };
+      return { score, pro, con, blocked, digest };
     },
 
     /** Résumé court, destiné au modèle métier : des intentions, pas une identité. */

@@ -30,6 +30,7 @@ const MESSAGES = path.join(DATA, 'messages.jsonl');
 const BODIES = path.join(DATA, 'bodies.jsonl');
 const RUNS = path.join(DATA, 'runs.jsonl');
 const JEV_LOG = path.join(DATA, 'jev-runs.jsonl');
+const PROTON_ARCHIVE = path.join(DATA, 'proton-archive-snapshot.json');
 const OUT = path.join(ROOT, 'dashboard', 'data.js');
 const OUT_BODIES = path.join(ROOT, 'dashboard', 'bodies.js');
 
@@ -343,16 +344,40 @@ async function ingest() {
 }
 
 function rebuild() {
+  // Capture explicite du dossier Archives Proton. L'absence d'un message dans
+  // une collecte de fenêtre ne prouve jamais qu'il a été archivé.
+  let protonArchive = null;
+  if (fs.existsSync(PROTON_ARCHIVE)) {
+    try {
+      const snapshot = JSON.parse(fs.readFileSync(PROTON_ARCHIVE, 'utf8'));
+      if (snapshot.sourceId === 'proton-perso' && snapshot.folder === 'archive' && snapshot.complete === true &&
+          typeof snapshot.capturedAt === 'string' && Array.isArray(snapshot.messages) &&
+          snapshot.messages.every((m) => typeof m.id === 'string')) {
+        protonArchive = snapshot;
+      } else console.warn('  ! proton-archive-snapshot.json invalide, état ignoré');
+    } catch {
+      console.warn('  ! proton-archive-snapshot.json illisible, état ignoré');
+    }
+  }
+  const archivedIds = new Set(protonArchive?.messages.map((m) => m.id) ?? []);
+
+  const bodyRows = readJsonl(BODIES);
+  const bodyText = new Map(bodyRows.map((b) => [b.key ?? messageKey(b.sourceId, b.id), b.text ?? '']));
+
   // Les alias sont appliqués à la lecture : renommer un critère change ce que
   // montre le dashboard sans toucher aux lignes déjà écrites sur disque.
   const messages = readJsonl(MESSAGES)
-    .map((m) => ({
-      ...m,
-      key: m.key ?? messageKey(m.sourceId, m.id),
-      sourceId: m.sourceId ?? 'gmail-legacy',
-      category: criteria.resolveCategory(m.category),
-      prefs: preferences.evaluate({ from: m.from, subject: m.subject, summary: m.summary }),
-    }))
+    .map((m) => {
+      const key = m.key ?? messageKey(m.sourceId, m.id);
+      return {
+        ...m,
+        key,
+        sourceId: m.sourceId ?? 'gmail-legacy',
+        category: criteria.resolveCategory(m.category),
+        prefs: preferences.evaluate({ from: m.from, subject: m.subject, summary: m.summary, body: bodyText.get(key) }),
+        mailboxFolder: m.sourceId === 'proton-perso' && archivedIds.has(m.id) ? 'archive' : null,
+      };
+    })
     .sort((a, b) => (a.date < b.date ? 1 : -1));
 
   const runs = readJsonl(RUNS).sort((a, b) => (a.runAt < b.runAt ? 1 : -1));
@@ -382,6 +407,11 @@ function rebuild() {
     categories: CATEGORIES,
     categoryMeta: criteria.categories,
     preferenceLabels: preferences.labels,
+    mailboxSync: protonArchive && {
+      sourceId: 'proton-perso', folder: 'archive', capturedAt: protonArchive.capturedAt,
+      total: archivedIds.size,
+      matched: messages.filter((m) => m.mailboxFolder === 'archive').length,
+    },
     sources: [...sources.values()].sort((a, b) => (a.lastRunAt < b.lastRunAt ? 1 : -1)),
     messages,
     runs,
@@ -392,7 +422,7 @@ function rebuild() {
   // Les corps vivent dans un second fichier, chargé à part par le dashboard :
   // l'index reste léger même quand l'historique grossit.
   const bodies = Object.fromEntries(
-    readJsonl(BODIES).map((b) => [b.key ?? messageKey(b.sourceId, b.id), { text: b.text, truncated: b.truncated }]),
+    bodyRows.map((b) => [b.key ?? messageKey(b.sourceId, b.id), { text: b.text, truncated: b.truncated }]),
   );
   const bodiesJs = `// Généré par ingest/ingest.mjs — ne pas éditer à la main.\nwindow.MAILBOARD_BODIES = ${JSON.stringify(bodies)};\nwindow.dispatchEvent(new Event('mailboard:bodies'));\n`;
   if (!DRY) fs.writeFileSync(OUT_BODIES, bodiesJs);

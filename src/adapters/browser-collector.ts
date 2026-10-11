@@ -1,13 +1,17 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { run } from '../../orchestrator/run-cycle.mjs';
+import { loadChannels } from '../../config/load.mjs';
 import type { Logger } from './logger.js';
 import type { CollectOptions } from '../core/models/index.js';
 
 export async function collectBrowser(root: string, configRoot: string, options: CollectOptions, logger: Logger) {
-  const collector = fileURLToPath(new URL('../../collectors/browser-mail/collect.mjs', import.meta.url));
+  const channels = loadChannels({ root }).channels;
+  const selected = options.sourceId ? channels.find((c: { sourceId: string }) => c.sourceId === options.sourceId) : channels.filter((c: { accessMode: string }) => ['browser', 'imap'].includes(c.accessMode))[0];
+  const collector = fileURLToPath(new URL(selected?.accessMode === 'imap' ? '../../collectors/proton-bridge/collect.mjs' : '../../collectors/browser-mail/collect.mjs', import.meta.url));
   const args = [collector];
   if (options.sourceId) args.push('--source', options.sourceId);
+  else if (selected?.accessMode === 'imap') args.push('--source', selected.sourceId);
   if (options.check) args.push('--check');
   if (options.observe) args.push('--observe');
   if (options.dry) args.push('--dry');

@@ -73,12 +73,13 @@ const store = {
 const done = new Set(
   store.read('mailboard.done', []).flatMap((k) => (k.includes(':') ? [k] : [k, `gmail-legacy:${k}`])),
 );
+const isProcessed = (message) => done.has(message.key) || message.mailboxFolder === 'archive';
 const state = {
   category: null,
   source: null,
   query: '',
   hideDone: store.read('mailboard.hideDone', false),
-  hideBlocked: store.read('mailboard.hideBlocked', false),
+  hideBlocked: store.read('mailboard.hideBlocked', true),
   expanded: new Set(),
 };
 
@@ -98,9 +99,9 @@ function visible() {
   return DATA.messages.filter((m) => {
     if (state.category && m.category !== state.category) return false;
     if (state.source && m.sourceId !== state.source) return false;
-    if (state.hideDone && done.has(m.key)) return false;
-    // Masquer reste un geste de l'utilisateur : une préférence ne supprime
-    // jamais un message d'elle-même.
+    if (state.hideDone && isProcessed(m)) return false;
+    // Masqué par défaut, mais jamais supprimé : décocher la case suffit à
+    // revoir les offres bloquées par une préférence.
     if (state.hideBlocked && m.prefs?.blocked) return false;
     if (!q) return true;
     const haystack = `${m.from} ${m.subject} ${m.summary} ${bodies.get(m.key) ?? ''}`;
@@ -129,9 +130,13 @@ function snippet(id, query) {
 
 function renderFreshness() {
   const last = DATA.runs[0];
-  $('freshness').textContent = last
+  const watch = last
     ? `Last run ${fmtDate(last.runAt)} (${relative(last.runAt)}) · ${DATA.messages.length} message(s) tracked`
     : 'No run ingested yet.';
+  const sync = DATA.mailboxSync;
+  $('freshness').textContent = sync
+    ? `${watch} · Proton archives checked ${fmtDate(sync.capturedAt)}`
+    : watch;
 }
 
 function renderKpis() {
@@ -143,7 +148,8 @@ function renderKpis() {
   const cards = [
     { label: 'Last 7 days', value: week.length, tone: 'var(--accent)' },
     ...DATA.categories.map((c) => ({ label: labelOf(c), value: counts[c] ?? 0, tone: toneOf(c) })),
-    { label: 'To process', value: DATA.messages.filter((m) => !done.has(m.key)).length, tone: 'var(--muted)' },
+    ...(DATA.mailboxSync ? [{ label: `Proton archived (${DATA.mailboxSync.matched} tracked)`, value: DATA.mailboxSync.total, tone: 'var(--muted)' }] : []),
+    { label: 'To process', value: DATA.messages.filter((m) => !isProcessed(m)).length, tone: 'var(--muted)' },
   ];
 
   $('kpis').innerHTML = cards
@@ -200,13 +206,13 @@ function renderMessages() {
       const body = bodies.get(m.key);
       const hit = q ? snippet(m.key, q) : null;
       return `
-      <li data-done="${done.has(m.key) ? 1 : 0}" data-open="${open ? 1 : 0}" style="--tone:${toneOf(m.category)}">
+      <li data-done="${isProcessed(m) ? 1 : 0}" data-open="${open ? 1 : 0}" style="--tone:${toneOf(m.category)}">
         <div>
           <button class="msg-open" type="button" data-expand="${m.key}" aria-expanded="${open}">
             <span class="caret">${open ? '▾' : '▸'}</span>
             <span class="msg-subject">${highlight(m.subject, q)}</span>
           </button>
-          <div class="msg-meta">${highlight(m.from, q)} · ${labelOf(m.category)}${m.hasBody ? '' : ' · <em>body not captured</em>'}</div>
+          <div class="msg-meta">${highlight(m.from, q)} · ${labelOf(m.category)}${m.mailboxFolder === 'archive' ? ' · Archived in Proton' : ''}${m.hasBody ? '' : ' · <em>body not captured</em>'}</div>
           ${prefTags(m)}
           ${m.summary ? `<div class="msg-summary">${highlight(m.summary, q)}</div>` : ''}
           ${hit && !open ? `<div class="msg-hit">${highlight(hit, q)}</div>` : ''}
@@ -221,7 +227,7 @@ function renderMessages() {
         <div class="msg-side">
           <time datetime="${m.date}">${fmtDate(m.date)}</time>
           ${m.link ? `<a href="${m.link}" target="_blank" rel="noopener">${m.provider === 'gmail' || !m.provider ? 'Gmail' : m.provider}</a>` : ''}
-          <button type="button" data-toggle="${m.key}">${done.has(m.key) ? 'Reopen' : 'Done'}</button>
+          ${m.mailboxFolder === 'archive' ? '' : `<button type="button" data-toggle="${m.key}">${done.has(m.key) ? 'Reopen' : 'Done'}</button>`}
         </div>
       </li>`;
     })

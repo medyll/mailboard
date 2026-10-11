@@ -372,6 +372,12 @@ npm test
 - Bodies are truncated to 12,000 characters at ingestion (`BODY_MAX`).
 - The "processed" state lives in the browser (localStorage). Changing browsers
   or clearing site data resets it.
+- A complete Proton Archives capture in `data/proton-archive-snapshot.json` is
+  projected by `node ingest/ingest.mjs --rebuild`. The dashboard shows its
+  capture time and total, marks matching Proton messages as archived, and
+  excludes them from "To process" and "Hide processed" results. It is a dated
+  snapshot: refresh the file after moving messages in Proton. Messages absent
+  from a normal collection window are never inferred to be archived.
 - Opened directly (`file://`), the dashboard cannot write. Editing needs the
   local `settings/server.mjs` (or `jobmailboard serve`), started on purpose and
   stopped after use.

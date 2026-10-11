@@ -1,7 +1,7 @@
 {
   "$comment": "Ce que vous VOULEZ, par opposition au CV qui dit ce que vous savez faire. Fichier versionné, éditable à la main : ajouter une entrée suffit, aucun code à toucher. Aucune donnée sensible ici — des goûts techniques, pas une identité.",
   "schemaVersion": 1,
-  "updatedAt": "2026-09-22",
+  "updatedAt": "2026-09-29",
 
   "$strength": {
     "blocker": "rédhibitoire — l'offre est signalée, jamais supprimée",
@@ -10,15 +10,25 @@
   },
   "weights": { "blocker": 4, "strong": 2, "mild": 1 },
 
-  "$preferences": "kind: pro (attire) | con (repousse). match.keywords est comparé en minuscules à l'expéditeur, l'objet et le résumé.",
+  "$preferences": "kind: pro (attire) | con (repousse). match.keywords est cherché en mot entier, sans casse, dans l'expéditeur, l'objet, le résumé et le corps (« java » ne touche pas « javascript »).",
+  "$digest": "Objets qui annoncent plusieurs offres dans un même mail. Pour eux, un mot rédhibitoire trouvé dans le corps baisse le score sans bloquer : seul l'objet peut bloquer. Expressions régulières, sans casse.",
+  "digest": {
+    "subjectPatterns": [
+      "\\d+\\+?\\s+(nouvelles\\s+)?offres?",
+      "nouvelles?\\s+offres?\\s+d.emploi",
+      "\\bet\\s+\\d+\\s+autres?\\b",
+      "offres?\\s+à\\s+pourvoir",
+      "offres?\\s+d.emploi\\s+supplémentaires?"
+    ]
+  },
   "preferences": [
     {
       "id": "java",
       "kind": "con",
       "strength": "blocker",
       "label": "Java / J2EE",
-      "note": "Au CV mais non souhaité. Déclaré le 2026-09-22.",
-      "match": { "keywords": ["java", "j2ee", "jee", "spring", "spring boot", "kotlin", "jakarta"] }
+      "note": "Jamais de Java. Déclaré le 2026-09-22, renforcé le 2026-09-29.",
+      "match": { "keywords": ["java", "jave", "j2ee", "jee", "spring", "spring boot", "springboot", "kotlin", "jakarta", "hibernate", "maven"] }
     },
     {
       "id": "python",
@@ -36,9 +46,13 @@
       "note": "Les agrégateurs poussent des offres sans rapport : immobilier, commerce, santé.",
       "match": {
         "keywords": [
-          "conseiller immobilier", "agent immobilier", "expert-comptable", "télésecrétaire",
-          "médecin", "infirmier", "assistant commercial", "conseiller en clientèle",
-          "développement commercial", "développeur commercial", "vrp", "galénique"
+          "conseiller immobilier", "agent immobilier", "consultant immobilier",
+          "négociateur immobilier", "mandataire immobilier", "commercial immobilier",
+          "transaction immobilière", "gestionnaire locatif", "gestionnaire de copropriété",
+          "expert-comptable", "télésecrétaire", "médecin", "infirmier",
+          "assistant commercial", "ingénieur commercial", "responsable commercial",
+          "conseiller en clientèle", "développement commercial", "développeur commercial",
+          "vrp", "galénique"
         ]
       }
     },
@@ -87,7 +101,7 @@
       "strength": "mild",
       "label": "IA / agents",
       "note": "Sujet de la période d'études 2025-2026.",
-      "match": { "keywords": ["ia générative", "llm", "agent", "agentique", "machine learning", "ai engineer"] }
+      "match": { "keywords": ["ia générative", "llm", "agent ia", "agents ia", "ai agent", "ai agents", "agentique", "agentic", "machine learning", "ai engineer"] }
     },
     {
       "id": "php",

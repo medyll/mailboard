@@ -64,7 +64,7 @@ Un message introuvable ou sans corps est simplement omis. Ne rien écrire si `it
 
 ## 4. Cycle
 
-Lancer, depuis le shell Bash : `MAILBOARD_PWSH=pwsh node orchestrator/run-cycle.mjs`. La variable fait passer Proton par `collectors/browser-mail/run.ps1`, qui démarre l'Edge dédié s'il est fermé et le referme ensuite. L'orchestrateur collecte les autres canaux (Proton via Edge, navigation jev-ultrafast), ingère une seule fois et décide de la notification. Il peut prendre plusieurs minutes ; ne pas l'interrompre.
+Lancer, depuis le shell Bash : `MAILBOARD_PWSH=pwsh node orchestrator/run-cycle.mjs`. L'orchestrateur collecte les autres canaux — Proton par IMAP via Proton Mail Bridge (`collectors/proton-bridge/collect.mjs`, Bridge doit tourner et être connecté), les éventuels canaux navigateur via Edge (la variable fait passer ceux-ci par `collectors/browser-mail/run.ps1`) —, ingère une seule fois et décide de la notification. Il peut prendre plusieurs minutes ; ne pas l'interrompre. Si le canal Proton échoue en authentification, le signaler : Bridge est probablement fermé.
 
 ## 4 bis. Relecture JEV
 
