@@ -4,9 +4,11 @@ Dossier de travail : le dépôt mailboard, `{{MAILBOARD_DIR}}`. Toutes les comma
 
 Contrat : `AGENTS.md` du dépôt. Le lire en premier ; en cas de désaccord, il l'emporte sur ce prompt.
 
+Règle shell : ne jamais utiliser `node -e`, `node -p`, `date` ni de script inline. Lancer uniquement les scripts du dépôt cités ici (`node ingest/...`, `node orchestrator/...`), depuis le shell Bash, avec exactement les arguments indiqués : une commande par appel, sans `;`, `&&`, pipe, redirection (`>`, `<`), heredoc (`<<EOF`) ni `wc`/`cat`/`head`. Ne rien lire ni écrire hors du dépôt (pas de `$TEMP`). Lire les fichiers avec l'outil Read, écrire avec l'outil Write. Toute autre forme déclenche une demande d'autorisation et bloque la tâche.
+
 ## 1. Requêtes
 
-Lire `config/criteria.json`. Pour chaque critère dont `enabled` n'est pas `false`, prendre `gmailQuery.gmail` et remplacer `{windowHours}` par `defaults.windowHours` (12 si absent). Ne jamais inventer ni réécrire de requête.
+Lancer `node ingest/gmail-queries.mjs`. La sortie est une ligne JSON : `queries` (id du critère → requête Gmail prête, `{windowHours}` déjà remplacé), `windowHours`, `runAt` (ISO 8601 local) et `stamp` (`YYYYMMDD-HHmm`). Ne jamais inventer ni réécrire de requête.
 
 ## 2. Collecte Gmail
 
@@ -14,12 +16,12 @@ Avec le connecteur Gmail, lancer chaque requête (recherche de threads). Pour ch
 
 ## 3. Run
 
-Écrire **un seul** fichier `data/runs-inbox/run-<YYYYMMDD-HHmm>--gmail-primary.json` (heure locale), au format v2 de `ingest/schema.md` :
+Écrire **un seul** fichier `data/runs-inbox/run-<stamp>--gmail-primary.json` (`stamp` et `runAt` de l'étape 1), au format v2 de `ingest/schema.md` :
 
 ```json
 {
   "schemaVersion": 2,
-  "runAt": "<ISO 8601>",
+  "runAt": "<runAt>",
   "windowHours": 12,
   "source": { "sourceId": "gmail-primary", "channelKind": "mailbox", "accessMode": "connector", "provider": "gmail" },
   "collector": { "name": "scheduled-task", "status": "ok" },
@@ -41,19 +43,19 @@ Avec le connecteur Gmail, lancer chaque requête (recherche de threads). Pour ch
 
 - Écrire le fichier même sans aucun mail (`"messages": []`).
 - Si le connecteur Gmail échoue : `"messages": []`, `collector.status` à `"unavailable"` et l'erreur dans `collector.note`.
-- N'écrire nulle part ailleurs que dans `data/runs-inbox/`. Ne modifier ni le code, ni `config/`, ni les fichiers `data/*.jsonl`.
+- N'écrire nulle part ailleurs que dans `data/runs-inbox/` (seule exception : `data/jev-review.tmp.json`, étape 4 bis). Ne modifier ni le code, ni `config/`, ni les fichiers `data/*.jsonl`.
 
 ## 3 bis. Rattrapage des corps
 
 Lancer `node ingest/missing-bodies.mjs --source gmail-primary --limit 20`. La sortie est une ligne JSON dont `items` liste des messages Gmail déjà connus mais sans corps.
 
-Si `items` n'est pas vide : pour chacun, récupérer le message par son `id` avec le connecteur Gmail (format texte brut), puis écrire **un seul** fichier `data/runs-inbox/backfill-<YYYYMMDD-HHmm>--gmail-primary.json` :
+Si `items` n'est pas vide : pour chacun, récupérer le message par son `id` avec le connecteur Gmail (format texte brut), puis écrire **un seul** fichier `data/runs-inbox/backfill-<stamp>--gmail-primary.json` :
 
 ```json
 {
   "schemaVersion": 2,
   "kind": "backfill",
-  "runAt": "<ISO 8601>",
+  "runAt": "<runAt>",
   "source": { "sourceId": "gmail-primary", "channelKind": "mailbox", "accessMode": "connector", "provider": "gmail" },
   "collector": { "name": "scheduled-task", "status": "ok" },
   "messages": [{ "id": "<id>", "body": "<corps en texte brut>" }]
@@ -68,13 +70,13 @@ Lancer, depuis le shell Bash : `MAILBOARD_PWSH=pwsh node orchestrator/run-cycle.
 
 ## 4 bis. Relecture JEV
 
-Mesure continue de JEV contre la lecture du corps (voir `JEV_INTEGRATION.md`, « Relecture outillée »). Deux lots de 5 : d'abord `node ingest/jev-review.mjs --limit 5 --order uncertain`, puis, une fois le premier enregistré, `node ingest/jev-review.mjs --limit 5 --order recent`.
+Mesure continue de JEV contre la lecture du corps (voir `JEV_INTEGRATION.md`, « Relecture outillée »). Deux lots de 5 : d'abord `node ingest/jev-review.mjs --limit 5 --order uncertain --out data/jev-review.queue.json`, puis, une fois le premier enregistré, `node ingest/jev-review.mjs --limit 5 --order recent --out data/jev-review.queue.json`.
 
 Pour chaque lot :
-- La sortie est une ligne JSON : `questions` (identifiant, type, texte, options ou niveaux) et `items` (mails avec leur corps). Les réponses de JEV n'y sont pas, volontairement : ne pas les chercher ailleurs.
-- Pour les questions marquées `requiresProfile`, lire `profile/profile.jev.md` (digest expurgé du CV) et `config/preferences.json` (technologies souhaitées ou à éviter).
+- La commande n'affiche que `{ out, items }` (nombre de mails). Si `items` vaut 0, passer. Sinon lire `data/jev-review.queue.json` avec l'outil Read : `questions` (identifiant, type, texte, options ou niveaux) et `items` (mails avec leur corps). Les réponses de JEV n'y sont pas, volontairement : ne pas les chercher ailleurs.
+- Pour les questions marquées `requiresProfile`, lire avec l'outil Read `profile/profile.jev.md` (digest expurgé du CV) et `config/preferences.json` (technologies souhaitées ou à éviter).
 - Répondre depuis le mail seul : `noul` → `true`/`false`, `choice` → une clé de `options`, `score` → un entier de 0 au dernier niveau, `null` si la question est sans objet ou indécidable.
-- Enregistrer en passant le JSON sur l'entrée standard : `node ingest/jev-review.mjs --save -` avec `{"model": "<ton modèle>", "labels": [{"key": "<key>", "answers": {…}}]}`.
+- Enregistrer : écrire avec l'outil Write `data/jev-review.tmp.json` (écraser s'il existe) contenant `{"model": "<ton modèle>", "labels": [{"key": "<key>", "answers": {…}}]}`, puis lancer `node ingest/jev-review.mjs --save data/jev-review.tmp.json`.
 
 Si `items` est vide, passer. Une erreur de relecture n'empêche pas la réponse finale ; elle ne se mentionne que si elle se répète.
 
