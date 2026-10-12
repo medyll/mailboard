@@ -3,6 +3,7 @@
 //
 //   node ingest/jev-review.mjs [--limit 10] [--order recent|uncertain] [--reviewer claude]
 //       prochain lot à l'aveugle : mails, corps et questions, sans réponse JEV
+//       --out <fichier.json> : écrit le lot dans ce fichier, n'affiche que { out, items }
 //   node ingest/jev-review.mjs --save <fichier.json | -> [--reviewer claude]
 //       enregistre { model?, labels: [{ key, answers }] } ; « - » lit l'entrée standard
 //
@@ -24,17 +25,20 @@ try {
     const labels = Array.isArray(raw) ? raw : raw.labels;
     console.log(JSON.stringify(saveReview({ root, reviewer, model: raw.model, labels })));
   } else {
-    console.log(
-      JSON.stringify(
-        reviewQueue({
-          root,
-          configRoot: root,
-          reviewer,
-          limit: Number(option('--limit') ?? 10),
-          order: option('--order') ?? 'recent',
-        }),
-      ),
-    );
+    const queue = reviewQueue({
+      root,
+      configRoot: root,
+      reviewer,
+      limit: Number(option('--limit') ?? 10),
+      order: option('--order') ?? 'recent',
+    });
+    const out = option('--out');
+    if (out) {
+      fs.writeFileSync(out, JSON.stringify(queue, null, 2));
+      console.log(JSON.stringify({ out, items: queue.items?.length ?? 0 }));
+    } else {
+      console.log(JSON.stringify(queue));
+    }
   }
 } catch (error) {
   console.error(error.message);
