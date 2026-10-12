@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.1.9] - 2026-10-12
+**Features:**
+- add --out to jev-review queue output
+- add gmail-queries script for the scheduled task
+
+**Chores:**
+- sync npm lockfile [skip ci]
+
+
+
 ## [0.1.8] - 2026-10-11
 **Features:**
 - collect Proton mail over IMAP via Proton Mail Bridge
