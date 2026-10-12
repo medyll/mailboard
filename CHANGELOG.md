@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.10] - 2026-10-12
+**Documentation:**
+- sync task prompt with repo-only shell rules
+
+**Chores:**
+- sync npm lockfile [skip ci]
+
+
+
 ## [0.1.9] - 2026-10-12
 **Features:**
 - add --out to jev-review queue output
