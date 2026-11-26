@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.1.11] - 2026-11-26
+**Chores:**
+- update compatible dependencies
+- update compatible dependencies
+- update compatible dependencies
+- update compatible dependencies
+- update compatible dependencies
+- update compatible dependencies
+- update compatible dependencies
+- sync npm lockfile [skip ci]
+
+**CI/CD:**
+- dependency updates by Dependabot with verified auto-merge
+
+
+
 ## [0.1.10] - 2026-10-12
 **Documentation:**
 - sync task prompt with repo-only shell rules
