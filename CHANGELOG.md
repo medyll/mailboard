@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.12] - 2026-11-27
+**CI/CD:**
+- publish through npm trusted publishing
+- let Dependabot auto-merge read check results [skip ci]
+
+
+
 ## [0.1.11] - 2026-11-26
 **Chores:**
 - update compatible dependencies
